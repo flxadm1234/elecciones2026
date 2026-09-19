@@ -29,6 +29,7 @@ log = logging.getLogger("core.ui")
 PAGINATOR_PER_PAGE = 25
 STATUS_PROCESADOS = {"procesado_ok", "revisado_ok", "observado", "error"}
 STATUS_PENDIENTES = {"pendiente", "procesando"}
+OPEN_REVIEW_STATUSES = {"pending", "abierto", "en_revision"}
 
 
 _ACTA_TYPE_MAP = {
@@ -39,6 +40,35 @@ _ACTA_TYPE_MAP = {
     "regional": "regional",
     "provincial_distrital": "provincial_distrital",
 }
+
+
+def _emit_debug_event(payload: dict) -> None:
+    _p = ".dbg/pipeline-monitor-module.env"
+    _u = "http://127.0.0.1:7777/event"
+    _s = "pipeline-monitor-module"
+    try:
+        with open(_p, encoding="utf-8") as f:
+            c = f.read()
+        _u = next((l.split("=", 1)[1] for l in c.splitlines() if l.startswith("DEBUG_SERVER_URL=")), _u)
+        _s = next((l.split("=", 1)[1] for l in c.splitlines() if l.startswith("DEBUG_SESSION_ID=")), _s)
+    except Exception:
+        pass
+
+    data = {"sessionId": _s, **payload}
+    data["runId"] = "post-fix"
+    try:
+        import urllib.request
+
+        urllib.request.urlopen(
+            urllib.request.Request(
+                _u,
+                data=json.dumps(data).encode(),
+                headers={"Content-Type": "application/json"},
+            ),
+            timeout=0.35,
+        ).read()
+    except Exception:
+        pass
 
 
 def _normalize_acta_type(raw: str | None) -> str:
@@ -189,6 +219,36 @@ def _ensure_legacy_pending_synced() -> tuple[int, int]:
     return (len(all_legacy), created)
 
 
+def _count_low_conf_open_reviews() -> int:
+    try:
+        return (
+            ManualReviewQueue.objects
+            .filter(status__in=OPEN_REVIEW_STATUSES, acta__status="observado")
+            .count()
+        )
+    except Exception:
+        return 0
+
+
+def _compute_scope_stats() -> dict:
+    try:
+        distritos = (
+            MesaLegacy.objects.exclude(distrito__isnull=True).exclude(distrito="")
+            .values("distrito")
+            .distinct()
+            .count()
+        )
+        mesas = (
+            MesaLegacy.objects.exclude(num_mesa__isnull=True).exclude(num_mesa="")
+            .values("num_mesa")
+            .distinct()
+            .count()
+        )
+        return {"distritos": int(distritos or 0), "mesas": int(mesas or 0)}
+    except Exception:
+        return {"distritos": 0, "mesas": 0}
+
+
 def _sidebar_badge_counts(request):
     """Retorna dict con badge_counts para sidebar.
 
@@ -205,13 +265,19 @@ def _sidebar_badge_counts(request):
     except Exception:
         log.warning("_sidebar_badge_counts: lazy sync skipped", exc_info=True)
     try:
-        review_pending = (
-            ManualReviewQueue.objects
-            .filter(status="pending")
-            .count()
-        )
+        review_pending = _count_low_conf_open_reviews()
+        review_status_counts = {
+            str(row["status"] or ""): int(row["total"] or 0)
+            for row in (
+                ManualReviewQueue.objects
+                .values("status")
+                .annotate(total=Count("id"))
+                .order_by("status")
+            )
+        }
     except Exception:
         review_pending = 0
+        review_status_counts = {}
     try:
         from .models import Acta
         actas_qs = Acta.objects.all()
@@ -226,6 +292,23 @@ def _sidebar_badge_counts(request):
         error_count = 0
         obs_count = 0
         total = 0
+    # #region debug-point C:dashboard-kpi-counts
+    _emit_debug_event({
+        "runId": "pre-fix",
+        "hypothesisId": "C",
+        "location": "core/views.py:_sidebar_badge_counts",
+        "msg": "[DEBUG] sidebar badge counts computed",
+        "data": {
+            "review_pending_pending_only": review_pending,
+            "review_status_counts": review_status_counts,
+            "pending_count": pending_count,
+            "processed_ok": processed_ok,
+            "error_count": error_count,
+            "observado_count": obs_count,
+            "total": total,
+        },
+    })
+    # #endregion
     return {
         "badge_counts": {
             "low_conf_review": review_pending,
@@ -388,6 +471,7 @@ def dashboard_view(request):
         tipo_count[t] = actas_qs.filter(acta_type=row["acta_type"]).count()
 
     totales = kpi_ambito(actas_qs)
+    scope_stats = _compute_scope_stats()
 
     ultimas = list(
         actas_qs.select_related("source_image")
@@ -442,12 +526,34 @@ def dashboard_view(request):
             "legacy_pendientes": legacy_pendientes,
         },
         "totales_ambito": totales,
+        "stats": {
+            "processed_ok": int(ok + revisado),
+            "reviewed": int(revisado),
+            "total_votos": int(sum(int(v or 0) for v in totales.values())),
+            "distritos": int(scope_stats.get("distritos", 0)),
+            "mesas": int(scope_stats.get("mesas", 0)),
+        },
         "por_tipo": tipo_count,
         "ultimas": ultimas,
         "nav_active": "dashboard",
     }
     ctx.update(_sidebar_badge_counts(request))
     return render(request, "core/dashboard.html", ctx)
+
+
+@login_required
+def pipeline_monitor_view(request):
+    is_super = bool(request.user and request.user.is_superuser)
+    processing_config, processing_config_error = _get_processing_config_safe()
+    ctx = {
+        "is_super": is_super,
+        "processing_config": processing_config,
+        "processing_config_error": processing_config_error,
+        "monitor_batch_group": (request.GET.get("batch_group") or "").strip()[:64],
+        "nav_active": "monitor",
+    }
+    ctx.update(_sidebar_badge_counts(request))
+    return render(request, "core/pipeline_monitor.html", ctx)
 
 
 def _get_processing_config_safe():
@@ -469,6 +575,20 @@ def procesar_pendientes_view(request):
       (4) HTTP 302 Found → dashboard?batch_group=<hex10>
     """
     from django.http import HttpResponseRedirect
+    # #region debug-point A:batch-entry
+    _emit_debug_event({
+        "runId": "pre-fix",
+        "hypothesisId": "A",
+        "location": "core/views.py:procesar_pendientes_view:entry",
+        "msg": "[DEBUG] procesar lote request entry",
+        "data": {
+            "method": request.method,
+            "user": getattr(request.user, "username", None),
+            "is_staff": bool(getattr(request.user, "is_staff", False)),
+            "is_superuser": bool(getattr(request.user, "is_superuser", False)),
+        },
+    })
+    # #endregion
 
     if not (request.user.is_staff or request.user.is_superuser):
         return HttpResponseRedirect(reverse("dashboard"))
@@ -481,6 +601,20 @@ def procesar_pendientes_view(request):
     try:
         never, pending_synced, batch_ids = _compute_legacy_pending_ids()
         ids_sorted = sorted(batch_ids)
+        # #region debug-point A:batch-candidates
+        _emit_debug_event({
+            "runId": "pre-fix",
+            "hypothesisId": "A",
+            "location": "core/views.py:procesar_pendientes_view:candidates",
+            "msg": "[DEBUG] batch candidates computed",
+            "data": {
+                "never_synced": len(never),
+                "pending_synced": len(pending_synced),
+                "batch_ids": len(ids_sorted),
+                "sample_ids": ids_sorted[:5],
+            },
+        })
+        # #endregion
     except Exception:
         log.exception("compute_legacy_pending_ids falló en /procesar-pendientes/")
         ids_sorted = []
@@ -512,6 +646,22 @@ def procesar_pendientes_view(request):
             max_concurrent=max_concurrent,
             enqueue_all=True,  # manual: encola TODO el slice, no rate limit por running
         )
+        # #region debug-point A:batch-enqueue-finish
+        _emit_debug_event({
+            "runId": "pre-fix",
+            "hypothesisId": "A",
+            "location": "core/views.py:procesar_pendientes_view:enqueued",
+            "msg": "[DEBUG] batch enqueue finished",
+            "data": {
+                "batch_group": batch_group,
+                "requested": len(ids),
+                "enqueued": enqueued,
+                "skipped": skipped,
+                "max_batch": max_batch,
+                "max_concurrent": max_concurrent,
+            },
+        })
+        # #endregion
     except Exception:
         log.exception("_enqueue_legacy_batch falló en POST /procesar-pendientes/")
 
@@ -1175,6 +1325,10 @@ def _compute_snapshot():
         amb_labels.append(amb_label)
         amb_data.append(int(suma))
         totales_ambito[amb_key] = int(suma)
+
+    total_votos = int(sum(int(v or 0) for v in totales_ambito.values()))
+    kpis["total_votos"] = total_votos
+    kpis["low_conf_review"] = _count_low_conf_open_reviews()
 
     ambitos_bar = {"labels": amb_labels, "data": amb_data}
 
@@ -2405,6 +2559,174 @@ def _serialize_batch_snapshot(batch_group: str):
     }
 
 
+def _fmt_dt_short(value):
+    if not value:
+        return "-"
+    try:
+        return value.astimezone().strftime("%d/%m %H:%M:%S")
+    except Exception:
+        return str(value)
+
+
+def _resolve_monitor_batch_group(requested_bg: str, latest_jobs: list[ProcessingJob]) -> str:
+    current_bg = (requested_bg or "").strip()[:64]
+    if current_bg:
+        return current_bg
+
+    for job in latest_jobs:
+        params = job.parameters if isinstance(job.parameters, dict) else {}
+        bg = (params.get("batch_group") or "").strip()
+        if bg and job.status in {"pending", "running", "failed", "done"}:
+            return bg
+
+    audit_rows = AuditLog.objects.filter(model_name="ProcessingJob").order_by("-created_at")[:25]
+    for row in audit_rows:
+        detail = row.detail if isinstance(row.detail, dict) else {}
+        bg = (detail.get("batch_group") or "").strip()
+        if bg:
+            return bg
+    return ""
+
+
+def _serialize_monitor_job(job: ProcessingJob, transcription: ActaTranscription | None = None) -> dict:
+    params = job.parameters if isinstance(job.parameters, dict) else {}
+    result_summary = job.result_summary if isinstance(job.result_summary, dict) else {}
+    acta_status = (getattr(job.acta, "status", "") if job.acta_id else "") or result_summary.get("status") or ""
+    mesa = params.get("mesa_numero") or (getattr(job.acta, "table_number", "") if job.acta_id else "") or "-"
+    total_secs = None
+    if job.started_at:
+        ref = job.finished_at or datetime.now(timezone.utc)
+        total_secs = max(0, int((ref - job.started_at).total_seconds()))
+    ai_secs = None
+    if transcription is not None and job.started_at and transcription.created_at:
+        ai_secs = max(0, int((transcription.created_at - job.started_at).total_seconds()))
+
+    if job.status == "pending":
+        stage_label = "Esperando worker"
+    elif job.status == "running" and transcription is None:
+        stage_label = "Transcribiendo con IA"
+    elif job.status == "running":
+        stage_label = "Validando y guardando resultados"
+    elif job.status == "done" and acta_status == "observado":
+        stage_label = "Completada con revisión humana"
+    elif job.status == "done":
+        stage_label = "Completada"
+    elif job.status == "failed":
+        stage_label = "Falló"
+    else:
+        stage_label = job.status
+
+    return {
+        "job_id": job.id,
+        "batch_group": params.get("batch_group") or "",
+        "legacy_id": params.get("legacy_id") or (getattr(job.acta, "acta_escrutinio_legacy_id", None) if job.acta_id else None),
+        "acta_id": job.acta_id,
+        "mesa_numero": str(mesa),
+        "status": job.status,
+        "stage_label": stage_label,
+        "acta_status": acta_status,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "created_at_label": _fmt_dt_short(job.created_at),
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "started_at_label": _fmt_dt_short(job.started_at),
+        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+        "finished_at_label": _fmt_dt_short(job.finished_at),
+        "duration_secs": total_secs,
+        "duration_label": _fmt_mmss(total_secs),
+        "ai_duration_secs": ai_secs,
+        "ai_duration_label": _fmt_mmss(ai_secs),
+        "retry_count": job.retry_count or 0,
+        "error": (job.error_message or "")[:220],
+        "validation_status": getattr(transcription, "validation_status", "") if transcription else "",
+        "transcription_id": getattr(transcription, "id", None) if transcription else None,
+        "transcription_at": transcription.created_at.isoformat() if transcription and transcription.created_at else None,
+        "transcription_at_label": _fmt_dt_short(transcription.created_at) if transcription else "-",
+        "confidence_score": getattr(job.acta, "confidence_score", None) if job.acta_id else None,
+        "review_required": acta_status == "observado",
+        "review_codes": result_summary.get("review_codes") or [],
+    }
+
+
+def _build_monitor_timeline(batch_group: str, jobs: list[ProcessingJob], transcriptions: dict[int, ActaTranscription], audit_rows: list[AuditLog]) -> list[dict]:
+    items: list[dict] = []
+
+    for audit in audit_rows:
+        detail = audit.detail if isinstance(audit.detail, dict) else {}
+        audit_bg = (detail.get("batch_group") or "").strip()
+        if batch_group and audit_bg and audit_bg != batch_group:
+            continue
+        trigger = detail.get("trigger") or ""
+        title = {
+            "manual_button": "Botón Procesar Lote presionado",
+            "dashboard_widget_switch": "Auto-lote actualizado",
+            "job_started": "Job iniciado",
+            "job_finished": "Job completado",
+            "job_failed": "Job con error",
+        }.get(trigger, f"{audit.model_name} · {audit.action}")
+        description = []
+        if detail.get("requested"):
+            description.append(f"Solicitadas: {detail.get('requested')}")
+        if detail.get("enqueued") is not None:
+            description.append(f"Encoladas: {detail.get('enqueued')}")
+        if detail.get("mesa_numero"):
+            description.append(f"Mesa {detail.get('mesa_numero')}")
+        if detail.get("status"):
+            description.append(f"Estado {detail.get('status')}")
+        if detail.get("duration_secs") is not None:
+            description.append(f"Duración {_fmt_mmss(detail.get('duration_secs'))}")
+        if detail.get("error"):
+            description.append(str(detail.get("error"))[:180])
+        items.append({
+            "ts": audit.created_at.isoformat() if audit.created_at else None,
+            "ts_label": _fmt_dt_short(audit.created_at),
+            "tone": "danger" if trigger == "job_failed" else ("success" if trigger == "job_finished" else "info"),
+            "title": title,
+            "description": " · ".join(description) or "Evento registrado en bitácora.",
+        })
+
+    for job in jobs:
+        trans = transcriptions.get(job.id)
+        mesa = (job.parameters if isinstance(job.parameters, dict) else {}).get("mesa_numero") or (getattr(job.acta, "table_number", "") if job.acta_id else "") or "-"
+        items.append({
+            "ts": job.created_at.isoformat() if job.created_at else None,
+            "ts_label": _fmt_dt_short(job.created_at),
+            "tone": "info",
+            "title": f"Job #{job.id} encolado",
+            "description": f"Mesa {mesa} lista para procesamiento.",
+        })
+        if job.started_at:
+            items.append({
+                "ts": job.started_at.isoformat(),
+                "ts_label": _fmt_dt_short(job.started_at),
+                "tone": "primary",
+                "title": f"Job #{job.id} inició procesamiento",
+                "description": f"Mesa {mesa} enviada al worker.",
+            })
+        if trans and trans.created_at:
+            items.append({
+                "ts": trans.created_at.isoformat(),
+                "ts_label": _fmt_dt_short(trans.created_at),
+                "tone": "secondary",
+                "title": f"Transcripción IA creada para job #{job.id}",
+                "description": f"Modelo {trans.model or trans.provider or 'IA'} · validación {trans.validation_status or 'pendiente'}.",
+            })
+        if job.finished_at:
+            final_tone = "danger" if job.status == "failed" else "success"
+            final_desc = f"Mesa {mesa} terminó con estado {job.status}."
+            if job.error_message:
+                final_desc += f" Error: {(job.error_message or '')[:180]}"
+            items.append({
+                "ts": job.finished_at.isoformat(),
+                "ts_label": _fmt_dt_short(job.finished_at),
+                "tone": final_tone,
+                "title": f"Job #{job.id} finalizó",
+                "description": final_desc,
+            })
+
+    items.sort(key=lambda row: row.get("ts") or "")
+    return items[-60:]
+
+
 @login_required
 @require_http_methods(["GET"])
 def batch_status_api_json(request, batch_group: str):
@@ -2440,23 +2762,25 @@ def pipeline_monitor_api_json(request):
     requested_bg = (request.GET.get("batch_group") or "").strip()[:64]
 
     latest_jobs = list(ProcessingJob.objects.select_related("acta").order_by("-created_at")[:25])
-    current_bg = requested_bg
-    if not current_bg:
-        for job in latest_jobs:
-            params = job.parameters if isinstance(job.parameters, dict) else {}
-            bg = (params.get("batch_group") or "").strip()
-            if bg and job.status in {"pending", "running", "failed"}:
-                current_bg = bg
-                break
-        if not current_bg:
-            for job in latest_jobs:
-                params = job.parameters if isinstance(job.parameters, dict) else {}
-                bg = (params.get("batch_group") or "").strip()
-                if bg:
-                    current_bg = bg
-                    break
+    current_bg = _resolve_monitor_batch_group(requested_bg, latest_jobs)
+    batch_jobs = list(
+        ProcessingJob.objects.select_related("acta")
+        .filter(parameters__batch_group=current_bg)
+        .order_by("created_at", "id")[:40]
+    ) if current_bg else []
+
+    relevant_jobs = latest_jobs[:]
+    for job in batch_jobs:
+        if all(existing.id != job.id for existing in relevant_jobs):
+            relevant_jobs.append(job)
+
+    trans_qs = ActaTranscription.objects.filter(processing_job_id__in=[job.id for job in relevant_jobs]).order_by("-created_at")
+    transcription_map: dict[int, ActaTranscription] = {}
+    for trans in trans_qs:
+        transcription_map.setdefault(trans.processing_job_id, trans)
 
     batch_payload = _serialize_batch_snapshot(current_bg) if current_bg else _serialize_batch_snapshot("")
+    batch_payload["rows"] = [_serialize_monitor_job(job, transcription_map.get(job.id)) for job in batch_jobs]
 
     alerts_qs = ProcessingAlert.objects.select_related("acta", "job").filter(acknowledged=False).order_by("-created_at")[:8]
     alerts = [{
@@ -2468,27 +2792,17 @@ def pipeline_monitor_api_json(request):
         "created_at": a.created_at.isoformat() if a.created_at else None,
     } for a in alerts_qs]
 
-    audit_qs = AuditLog.objects.order_by("-created_at")[:12]
+    audit_qs = AuditLog.objects.order_by("-created_at")[:20]
     audit_rows = [{
         "created_at": a.created_at.isoformat() if a.created_at else None,
+        "created_at_label": _fmt_dt_short(a.created_at),
         "action": a.action,
         "model_name": a.model_name,
         "actor": getattr(a.actor, "username", None),
         "detail": a.detail if isinstance(a.detail, dict) else {},
     } for a in audit_qs]
 
-    job_rows = []
-    for job in latest_jobs[:10]:
-        params = job.parameters if isinstance(job.parameters, dict) else {}
-        job_rows.append({
-            "job_id": job.id,
-            "status": job.status,
-            "legacy_id": params.get("legacy_id"),
-            "batch_group": params.get("batch_group"),
-            "mesa_numero": params.get("mesa_numero") or (getattr(job.acta, "table_number", "") if job.acta_id else ""),
-            "retry_count": job.retry_count or 0,
-            "error": (job.error_message or "")[:160],
-        })
+    job_rows = [_serialize_monitor_job(job, transcription_map.get(job.id)) for job in latest_jobs[:12]]
 
     anomalies = []
     if cfg_error:
@@ -2497,6 +2811,44 @@ def pipeline_monitor_api_json(request):
         anomalies.append({"severity": "warning", "message": f"El lote actual registra {batch_payload['failed']} job(s) fallidos."})
     if alerts:
         anomalies.append({"severity": alerts[0]["severity"], "message": alerts[0]["message"]})
+
+    recent_batch_audits = list(AuditLog.objects.filter(model_name="ProcessingJob").order_by("-created_at")[:20])
+    timeline = _build_monitor_timeline(current_bg, batch_jobs or latest_jobs[:8], transcription_map, recent_batch_audits)
+    last_batches = []
+    for entry in recent_batch_audits:
+        detail = entry.detail if isinstance(entry.detail, dict) else {}
+        bg = (detail.get("batch_group") or "").strip()
+        if not bg or any(item["batch_group"] == bg for item in last_batches):
+            continue
+        last_batches.append({
+            "batch_group": bg,
+            "created_at": entry.created_at.isoformat() if entry.created_at else None,
+            "created_at_label": _fmt_dt_short(entry.created_at),
+            "trigger": detail.get("trigger") or "",
+            "requested": int(detail.get("requested") or 0),
+            "enqueued": int(detail.get("enqueued") or 0),
+        })
+        if len(last_batches) >= 6:
+            break
+
+    # #region debug-point D:monitor-snapshot
+    _emit_debug_event({
+        "runId": "pre-fix",
+        "hypothesisId": "D",
+        "location": "core/views.py:pipeline_monitor_api_json",
+        "msg": "[DEBUG] pipeline monitor snapshot generated",
+        "data": {
+            "requested_batch_group": requested_bg,
+            "resolved_batch_group": batch_payload.get("batch_group"),
+            "batch_total": batch_payload.get("total", 0),
+            "batch_done": batch_payload.get("done", 0),
+            "batch_failed": batch_payload.get("failed", 0),
+            "recent_jobs": len(job_rows),
+            "alerts": len(alerts),
+            "anomalies": len(anomalies),
+        },
+    })
+    # #endregion
 
     return JsonResponse({
         "ok": True,
@@ -2508,10 +2860,19 @@ def pipeline_monitor_api_json(request):
             "max_batch_size_per_dispatch": int(getattr(cfg, "max_batch_size_per_dispatch", 8) or 8) if cfg else None,
         },
         "current_batch": batch_payload,
+        "timeline": timeline,
+        "last_batches": last_batches,
         "recent_jobs": job_rows,
         "recent_events": audit_rows,
         "alerts": alerts,
         "anomalies": anomalies,
+        "system_summary": {
+            "processed_ok": Acta.objects.filter(status__in=["procesado_ok", "revisado_ok"]).count(),
+            "observed": Acta.objects.filter(status="observado").count(),
+            "pending_actas": Acta.objects.filter(status__in=["pendiente", "procesando"]).count(),
+            "running_jobs": ProcessingJob.objects.filter(status__in=["pending", "running"]).count(),
+            "open_low_conf_reviews": _count_low_conf_open_reviews(),
+        },
         "generated_at": datetime.now(timezone.utc).isoformat(),
     })
 

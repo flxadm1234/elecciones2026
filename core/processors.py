@@ -28,6 +28,36 @@ from .validators import ActaValidator, detect_duplicate_acta, ValidationResult
 logger = logging.getLogger("core.processors")
 
 
+def _emit_debug_event(payload: dict) -> None:
+    _p = ".dbg/pipeline-monitor-module.env"
+    _u = "http://127.0.0.1:7777/event"
+    _s = "pipeline-monitor-module"
+    try:
+        with open(_p, encoding="utf-8") as f:
+            c = f.read()
+        _u = next((l.split("=", 1)[1] for l in c.splitlines() if l.startswith("DEBUG_SERVER_URL=")), _u)
+        _s = next((l.split("=", 1)[1] for l in c.splitlines() if l.startswith("DEBUG_SESSION_ID=")), _s)
+    except Exception:
+        pass
+
+    data = {"sessionId": _s, **payload}
+    data["runId"] = "post-fix"
+    try:
+        import json
+        import urllib.request
+
+        urllib.request.urlopen(
+            urllib.request.Request(
+                _u,
+                data=json.dumps(data).encode(),
+                headers={"Content-Type": "application/json"},
+            ),
+            timeout=0.35,
+        ).read()
+    except Exception:
+        pass
+
+
 @dataclass
 class ProcessResult:
     ok: bool = False
@@ -302,7 +332,13 @@ class ActaProcessor:
         result.acta_id = acta.id
         if job:
             job.acta = acta
-            job.parameters = {"legacy_id": legacy.id, "layout_flags": layout_flags}
+            current_params = job.parameters if isinstance(job.parameters, dict) else {}
+            job.parameters = {
+                **current_params,
+                "legacy_id": legacy.id,
+                "mesa_numero": (legacy.mesa_numero or "")[:32],
+                "layout_flags": layout_flags,
+            }
             job.save(update_fields=["acta", "parameters"])
 
         provider_settings = get_default_provider_settings()
@@ -374,6 +410,24 @@ class ActaProcessor:
 
         acta.status = "procesado_ok" if validation.passed else "observado"
         acta.save(update_fields=["status"])
+        # #region debug-point E:processor-validation-result
+        _emit_debug_event({
+            "runId": "pre-fix",
+            "hypothesisId": "E",
+            "location": "core/processors.py:process_legacy_acta_escrutinio:validation",
+            "msg": "[DEBUG] validation and status resolved",
+            "data": {
+                "acta_id": acta.id,
+                "legacy_id": legacy.id,
+                "transcription_id": transcription.id,
+                "status": acta.status,
+                "validation_status": validation.validation_status,
+                "passed": bool(validation.passed),
+                "review_codes": validation.review_codes,
+                "review_reasons": validation.review_reasons[:4],
+            },
+        })
+        # #endregion
 
         review_item = None
         if not validation.passed or acta.status == "observado":
@@ -384,6 +438,21 @@ class ActaProcessor:
                 reason_codes=validation.review_codes or ["AUTO_OBSERVED"],
             )
             result.review_item_id = review_item.id
+            # #region debug-point E:review-queue-created
+            _emit_debug_event({
+                "runId": "pre-fix",
+                "hypothesisId": "E",
+                "location": "core/processors.py:process_legacy_acta_escrutinio:review",
+                "msg": "[DEBUG] manual review queue item created",
+                "data": {
+                    "acta_id": acta.id,
+                    "legacy_id": legacy.id,
+                    "review_item_id": review_item.id,
+                    "review_status": review_item.status,
+                    "reason_codes": review_item.reason_codes,
+                },
+            })
+            # #endregion
             for code in validation.review_codes or ["LOW_CONF"]:
                 ProcessingAlert.objects.get_or_create(
                     acta=acta,

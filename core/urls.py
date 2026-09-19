@@ -9,6 +9,7 @@ urlpatterns = [
     path("", views.dashboard_view, name="home"),
     path("accounts/", include("django.contrib.auth.urls")),
     path("dashboard/", views.dashboard_view, name="dashboard"),
+    path("monitoreo/", views.pipeline_monitor_view, name="pipeline_monitor"),
     path("dashboard/stats-partial/", views.dashboard_stats_partial, name="dashboard_stats_partial"),
     path("resultados/", views.resultados_view, name="resultados"),
     path("configuracion/", views.config_view, name="config_view"),

@@ -9,12 +9,42 @@ from celery.exceptions import MaxRetriesExceededError
 from django.db import connection, transaction
 from django.utils import timezone
 
-from .models import ProcessingJob, Acta, ProcessingConfig, ActaImage
+from .models import ProcessingJob, Acta, ProcessingConfig, ActaImage, AuditLog
 from .models_legacy import ActaEscrutinioLegacy
 from .processors import ActaProcessor
 from .views import _ensure_legacy_pending_synced, _compute_legacy_pending_ids
 
 logger = logging.getLogger("core.tasks")
+
+
+def _emit_debug_event(payload: dict) -> None:
+    _p = ".dbg/pipeline-monitor-module.env"
+    _u = "http://127.0.0.1:7777/event"
+    _s = "pipeline-monitor-module"
+    try:
+        with open(_p, encoding="utf-8") as f:
+            c = f.read()
+        _u = next((l.split("=", 1)[1] for l in c.splitlines() if l.startswith("DEBUG_SERVER_URL=")), _u)
+        _s = next((l.split("=", 1)[1] for l in c.splitlines() if l.startswith("DEBUG_SESSION_ID=")), _s)
+    except Exception:
+        pass
+
+    data = {"sessionId": _s, **payload}
+    data["runId"] = "post-fix"
+    try:
+        import json
+        import urllib.request
+
+        urllib.request.urlopen(
+            urllib.request.Request(
+                _u,
+                data=json.dumps(data).encode(),
+                headers={"Content-Type": "application/json"},
+            ),
+            timeout=0.35,
+        ).read()
+    except Exception:
+        pass
 
 
 def _enqueue_legacy_batch(legacy_ids: list[int], *, batch_group: str,
@@ -27,6 +57,20 @@ def _enqueue_legacy_batch(legacy_ids: list[int], *, batch_group: str,
     """
     if not legacy_ids:
         return 0, 0
+    # #region debug-point B:enqueue-entry
+    _emit_debug_event({
+        "runId": "pre-fix",
+        "hypothesisId": "B",
+        "location": "core/tasks.py:_enqueue_legacy_batch",
+        "msg": "[DEBUG] enqueue legacy batch start",
+        "data": {
+            "legacy_ids": len(legacy_ids),
+            "batch_group": batch_group,
+            "max_concurrent": max_concurrent,
+            "enqueue_all": bool(enqueue_all),
+        },
+    })
+    # #endregion
     proc = ActaProcessor()
     enqueued = 0
     skipped = 0
@@ -74,6 +118,21 @@ def _enqueue_legacy_batch(legacy_ids: list[int], *, batch_group: str,
             )
             process_single_legacy_acta.delay(job.id, leg_id)
             enqueued += 1
+            # #region debug-point B:enqueue-job-created
+            _emit_debug_event({
+                "runId": "pre-fix",
+                "hypothesisId": "B",
+                "location": "core/tasks.py:_enqueue_legacy_batch:job",
+                "msg": "[DEBUG] processing job created",
+                "data": {
+                    "job_id": job.id,
+                    "legacy_id": leg_id,
+                    "acta_id": acta.id if acta else None,
+                    "batch_group": batch_group,
+                    "status": job.status,
+                },
+            })
+            # #endregion
         except Exception:
             logger.exception("error enqueue leg_id=%s", leg_id)
             skipped += 1
@@ -102,6 +161,19 @@ def process_single_legacy_acta(self, job_id: int, legacy_id: int):
 
     retry_payload = None
     final_result: dict | None = None
+    # #region debug-point B:job-execution-entry
+    _emit_debug_event({
+        "runId": "pre-fix",
+        "hypothesisId": "B",
+        "location": "core/tasks.py:process_single_legacy_acta:entry",
+        "msg": "[DEBUG] process single legacy acta entry",
+        "data": {
+            "job_id": job_id,
+            "legacy_id": legacy_id,
+            "retries": getattr(getattr(self, "request", None), "retries", None),
+        },
+    })
+    # #endregion
     try:
         with transaction.atomic():
             job = ProcessingJob.objects.filter(pk=job_id).select_for_update(of=("self",)).first()
@@ -117,12 +189,62 @@ def process_single_legacy_acta(self, job_id: int, legacy_id: int):
             if job.acta_id:
                 Acta.objects.filter(pk=job.acta_id).update(status="procesando", updated_at=timezone.now())
             try:
+                params = job.parameters if isinstance(job.parameters, dict) else {}
+                AuditLog.objects.create(
+                    action="update",
+                    model_name="ProcessingJob",
+                    object_id=str(job.id),
+                    detail={
+                        "trigger": "job_started",
+                        "batch_group": params.get("batch_group"),
+                        "legacy_id": params.get("legacy_id"),
+                        "mesa_numero": params.get("mesa_numero"),
+                        "status": "running",
+                    },
+                )
+            except Exception:
+                logger.warning("audit job_started skip job_id=%s", job.id, exc_info=True)
+            try:
                 proc = ActaProcessor(job=job)
                 result = proc.process_legacy_acta_escrutinio(legacy_id)
                 if not result.ok:
                     raise Exception(result.error or "Proceso fallido sin mensaje")
-                job.mark_done({"legacy_id": legacy_id, "ok": True, "acta_id": result.acta_id})
+                params = job.parameters if isinstance(job.parameters, dict) else {}
+                job.mark_done({"legacy_id": legacy_id, "ok": True, "acta_id": result.acta_id, "batch_group": params.get("batch_group"), "status": result.status})
                 final_result = {"job_id": job_id, "legacy_id": legacy_id, "status": "ok", "acta_id": result.acta_id}
+                try:
+                    elapsed_secs = None
+                    if job.started_at and job.finished_at:
+                        elapsed_secs = max(0, int((job.finished_at - job.started_at).total_seconds()))
+                    AuditLog.objects.create(
+                        action="update",
+                        model_name="ProcessingJob",
+                        object_id=str(job.id),
+                        detail={
+                            "trigger": "job_finished",
+                            "batch_group": params.get("batch_group"),
+                            "legacy_id": params.get("legacy_id"),
+                            "mesa_numero": params.get("mesa_numero"),
+                            "status": result.status or "done",
+                            "duration_secs": elapsed_secs,
+                        },
+                    )
+                except Exception:
+                    logger.warning("audit job_finished skip job_id=%s", job.id, exc_info=True)
+                # #region debug-point B:job-execution-done
+                _emit_debug_event({
+                    "runId": "pre-fix",
+                    "hypothesisId": "B",
+                    "location": "core/tasks.py:process_single_legacy_acta:done",
+                    "msg": "[DEBUG] process single legacy acta done",
+                    "data": {
+                        "job_id": job_id,
+                        "legacy_id": legacy_id,
+                        "acta_id": result.acta_id,
+                        "status": result.status,
+                    },
+                })
+                # #endregion
             except MaxRetriesExceededError:
                 job.mark_failed(f"Max retries exceeded ({max_retries})")
                 if job.acta_id:
@@ -130,6 +252,19 @@ def process_single_legacy_acta(self, job_id: int, legacy_id: int):
                 final_result = {"job_id": job_id, "legacy_id": legacy_id, "status": "max_retries"}
             except Exception as exc:
                 logger.exception("job_id=%s leg_id=%s exception", job_id, legacy_id)
+                # #region debug-point B:job-execution-error
+                _emit_debug_event({
+                    "runId": "pre-fix",
+                    "hypothesisId": "B",
+                    "location": "core/tasks.py:process_single_legacy_acta:error",
+                    "msg": "[DEBUG] process single legacy acta exception",
+                    "data": {
+                        "job_id": job_id,
+                        "legacy_id": legacy_id,
+                        "error": str(exc)[:220],
+                    },
+                })
+                # #endregion
                 try:
                     job.retry_count = (job.retry_count or 0) + 1
                     job.save(update_fields=["retry_count"])
@@ -141,6 +276,23 @@ def process_single_legacy_acta(self, job_id: int, legacy_id: int):
                         if job.acta_id:
                             Acta.objects.filter(pk=job.acta_id).update(status="error", updated_at=timezone.now())
                         final_result = {"job_id": job_id, "legacy_id": legacy_id, "status": "failed", "error": str(exc)}
+                        try:
+                            params = job.parameters if isinstance(job.parameters, dict) else {}
+                            AuditLog.objects.create(
+                                action="update",
+                                model_name="ProcessingJob",
+                                object_id=str(job.id),
+                                detail={
+                                    "trigger": "job_failed",
+                                    "batch_group": params.get("batch_group"),
+                                    "legacy_id": params.get("legacy_id"),
+                                    "mesa_numero": params.get("mesa_numero"),
+                                    "status": "failed",
+                                    "error": str(exc)[:220],
+                                },
+                            )
+                        except Exception:
+                            logger.warning("audit job_failed skip job_id=%s", job.id, exc_info=True)
                 except MaxRetriesExceededError:
                     job.mark_failed(str(exc) or f"max retries {max_retries}")
                     if job.acta_id:

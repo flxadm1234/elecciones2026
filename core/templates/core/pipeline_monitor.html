@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoreo IA · Elecciones 2026{% endblock %}
+
+{% block body %}
+<div class="page-head d-flex flex-wrap flex-md-nowrap align-items-md-center justify-content-between gap-3 mb-4">
+  <div>
+    <h1 class="page-title h2 fw-bold mb-1 text-primary-emphasis">Monitoreo del Sistema IA</h1>
+    <p class="page-subtitle text-muted mb-0">Aquí puedes seguir el lote desde que se presiona <strong>Procesar Lote</strong> hasta que cada acta termina, con tiempos, errores y eventos detallados.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <span class="badge rounded-pill text-bg-light border fw-semibold px-3 py-2">Auto-lote: <span id="monitorAutoBatchLabel">{% if processing_config and processing_config.auto_batch_enabled %}Activo{% else %}Inactivo{% endif %}</span></span>
+    <span class="badge rounded-pill text-bg-light border fw-semibold px-3 py-2">Lote actual: <span id="monitorBatchLabel" class="mono">{{ monitor_batch_group|default:"—" }}</span></span>
+    <a class="btn btn-outline-primary btn-sm fw-semibold rounded-pill px-3" href="{% url 'dashboard' %}">Volver al dashboard</a>
+  </div>
+</div>
+
+<div id="monitorAnomalies" class="d-flex flex-column gap-2 mb-3"></div>
+
+<section class="row g-3 g-xl-4 mb-4" aria-label="Resumen operativo">
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card border-0 shadow-sm rounded-4 h-100 monitor-summary-card">
+      <div class="card-body p-4">
+        <div class="small text-muted text-uppercase fw-semibold mb-2">Procesadas OK</div>
+        <div class="display-6 fw-bold text-success" id="summaryProcessed">0</div>
+        <div class="small text-muted">Actas cerradas sin revisión pendiente.</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card border-0 shadow-sm rounded-4 h-100 monitor-summary-card">
+      <div class="card-body p-4">
+        <div class="small text-muted text-uppercase fw-semibold mb-2">En revisión</div>
+        <div class="display-6 fw-bold text-warning" id="summaryObserved">0</div>
+        <div class="small text-muted">Actas observadas que realmente siguen abiertas.</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card border-0 shadow-sm rounded-4 h-100 monitor-summary-card">
+      <div class="card-body p-4">
+        <div class="small text-muted text-uppercase fw-semibold mb-2">Pendientes</div>
+        <div class="display-6 fw-bold text-primary" id="summaryPending">0</div>
+        <div class="small text-muted">Actas aún sin terminar o esperando worker.</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card border-0 shadow-sm rounded-4 h-100 monitor-summary-card">
+      <div class="card-body p-4">
+        <div class="small text-muted text-uppercase fw-semibold mb-2">Jobs activos</div>
+        <div class="display-6 fw-bold text-info" id="summaryRunningJobs">0</div>
+        <div class="small text-muted">Jobs pendientes o en ejecución ahora mismo.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+  <div class="card-body p-4 p-lg-5">
+    <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start mb-4">
+      <div>
+        <h2 class="h4 fw-bold text-primary-emphasis mb-1">Estado del lote actual</h2>
+        <p class="text-muted mb-0">Vista resumida del lote y acceso rápido a lotes recientes.</p>
+      </div>
+      <div class="small text-muted">
+        <div>Tiempo total del lote: <strong id="monitorElapsed">-</strong></div>
+        <div>ETA estimada: <strong id="monitorEta">-</strong></div>
+      </div>
+    </div>
+
+    <div class="progress monitor-progress mb-3" role="progressbar" aria-label="Progreso del lote actual">
+      <div id="monitorProgressBar" class="progress-bar bg-primary" style="width:0%">0%</div>
+    </div>
+
+    <div class="row g-2 g-lg-3 mb-4">
+      <div class="col-6 col-xl-3"><div class="monitor-kpi rounded-3 border p-3"><div class="small text-muted">Pendientes</div><div id="monitorPending" class="h4 mb-0 text-primary">0</div></div></div>
+      <div class="col-6 col-xl-3"><div class="monitor-kpi rounded-3 border p-3"><div class="small text-muted">En proceso</div><div id="monitorRunning" class="h4 mb-0 text-info">0</div></div></div>
+      <div class="col-6 col-xl-3"><div class="monitor-kpi rounded-3 border p-3"><div class="small text-muted">Completados</div><div id="monitorDone" class="h4 mb-0 text-success">0</div></div></div>
+      <div class="col-6 col-xl-3"><div class="monitor-kpi rounded-3 border p-3"><div class="small text-muted">Fallidos</div><div id="monitorFailed" class="h4 mb-0 text-danger">0</div></div></div>
+    </div>
+
+    <div>
+      <div class="small fw-semibold text-uppercase text-muted mb-2">Lotes recientes</div>
+      <div id="monitorBatchHistory" class="d-flex flex-wrap gap-2">
+        <span class="text-muted small">Aún no hay lotes recientes para mostrar.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row g-3 g-xl-4 mb-4">
+  <div class="col-12 col-xl-7">
+    <div class="card border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body p-4 p-lg-5">
+        <h2 class="h4 fw-bold text-primary-emphasis mb-1">Línea de tiempo del proceso</h2>
+        <p class="text-muted mb-4">Secuencia cronológica del lote: disparo, encolado, worker, transcripción IA, validación y resultado.</p>
+        <div id="monitorTimeline" class="monitor-timeline">
+          <div class="text-muted small">Sin eventos todavía.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-5">
+    <div class="card border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body p-4 p-lg-5">
+        <h2 class="h4 fw-bold text-primary-emphasis mb-1">Alertas y errores</h2>
+        <p class="text-muted mb-4">Anomalías, fallos del script, advertencias de validación y cualquier señal relevante del sistema.</p>
+        <div id="monitorAlerts" class="d-flex flex-column gap-3">
+          <div class="text-muted small">Sin alertas recientes.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+  <div class="card-body p-4 p-lg-5">
+    <h2 class="h4 fw-bold text-primary-emphasis mb-1">Actas y jobs del lote</h2>
+    <p class="text-muted mb-4">Cada tarjeta resume una acta: cuándo entró, cuándo arrancó la IA, cuánto demoró y cómo terminó.</p>
+    <div id="monitorJobs" class="row g-3">
+      <div class="col-12"><div class="text-muted small">Sin jobs recientes.</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm rounded-4 overflow-hidden">
+  <div class="card-body p-4 p-lg-5">
+    <h2 class="h4 fw-bold text-primary-emphasis mb-1">Bitácora técnica consolidada</h2>
+    <p class="text-muted mb-4">Registro de acciones del sistema, cambios de auto-lote y eventos operativos ligados al pipeline.</p>
+    <div id="monitorEvents" class="monitor-scroll d-flex flex-column gap-2">
+      <div class="text-muted small">Sin eventos registrados.</div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const MONITOR_URL = "{% url 'pipeline_monitor_json' %}";
+  let activeBatchGroup = "{{ monitor_batch_group|default:''|escapejs }}";
+  if (!activeBatchGroup) {
+    try { activeBatchGroup = window.localStorage.getItem("pipeline-monitor-batch-group") || ""; } catch(_) {}
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function renderAnomalies(items) {
+    const root = document.getElementById("monitorAnomalies");
+    if (!root) return;
+    if (!items || !items.length) {
+      root.innerHTML = "";
+      return;
+    }
+    root.innerHTML = items.map(function(item){
+      const tone = item.severity === "critical" ? "danger" : (item.severity === "warning" ? "warning" : "info");
+      return '<div class="alert alert-' + tone + ' border-0 rounded-3 py-3 px-4 mb-0 small shadow-sm">' + escapeHtml(item.message) + '</div>';
+    }).join("");
+  }
+
+  function renderBatchHistory(items) {
+    const root = document.getElementById("monitorBatchHistory");
+    if (!root) return;
+    if (!items || !items.length) {
+      root.innerHTML = '<span class="text-muted small">Aún no hay lotes recientes para mostrar.</span>';
+      return;
+    }
+    root.innerHTML = items.map(function(item){
+      const active = activeBatchGroup && activeBatchGroup === item.batch_group;
+      const klass = active ? 'btn-primary' : 'btn-outline-secondary';
+      return '<button type="button" class="btn ' + klass + ' btn-sm rounded-pill fw-semibold monitor-batch-pill" data-batch-group="' + escapeHtml(item.batch_group) + '">' +
+        escapeHtml(item.batch_group) + ' · ' + escapeHtml(item.created_at_label || '-') +
+        '</button>';
+    }).join("");
+    root.querySelectorAll("[data-batch-group]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        activeBatchGroup = btn.getAttribute("data-batch-group") || "";
+        try { window.localStorage.setItem("pipeline-monitor-batch-group", activeBatchGroup); } catch(_) {}
+        refreshMonitor().catch(function(){});
+      });
+    });
+  }
+
+  function renderTimeline(items) {
+    const root = document.getElementById("monitorTimeline");
+    if (!root) return;
+    if (!items || !items.length) {
+      root.innerHTML = '<div class="text-muted small">Sin eventos todavía.</div>';
+      return;
+    }
+    root.innerHTML = items.map(function(item){
+      const tone = item.tone || "info";
+      return '<article class="monitor-timeline-item tone-' + escapeHtml(tone) + '">' +
+        '<div class="monitor-timeline-dot"></div>' +
+        '<div class="monitor-timeline-content rounded-4 border bg-white p-3 p-lg-4">' +
+          '<div class="d-flex flex-wrap justify-content-between gap-2 mb-1">' +
+            '<div class="fw-semibold text-primary-emphasis">' + escapeHtml(item.title || "Evento") + '</div>' +
+            '<div class="small text-muted">' + escapeHtml(item.ts_label || "-") + '</div>' +
+          '</div>' +
+          '<div class="small text-body-secondary">' + escapeHtml(item.description || "") + '</div>' +
+        '</div>' +
+      '</article>';
+    }).join("");
+  }
+
+  function renderAlerts(items) {
+    const root = document.getElementById("monitorAlerts");
+    if (!root) return;
+    if (!items || !items.length) {
+      root.innerHTML = '<div class="text-muted small">Sin alertas recientes.</div>';
+      return;
+    }
+    root.innerHTML = items.map(function(item){
+      const badge = item.severity === "critical" ? "danger" : (item.severity === "warning" ? "warning text-dark" : "info");
+      return '<div class="rounded-4 border p-3 p-lg-4 bg-white">' +
+        '<div class="d-flex justify-content-between gap-2 align-items-start mb-2">' +
+          '<span class="badge bg-' + badge + '">' + escapeHtml((item.severity || 'info').toUpperCase()) + '</span>' +
+          '<span class="small text-muted">' + escapeHtml(item.alert_type || 'ALERTA') + '</span>' +
+        '</div>' +
+        '<div class="small text-body mb-1">' + escapeHtml(item.message || "") + '</div>' +
+        '<div class="small text-muted">' + escapeHtml(item.created_at || "") + '</div>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderJobs(items) {
+    const root = document.getElementById("monitorJobs");
+    if (!root) return;
+    if (!items || !items.length) {
+      root.innerHTML = '<div class="col-12"><div class="text-muted small">Sin jobs recientes.</div></div>';
+      return;
+    }
+    root.innerHTML = items.map(function(item){
+      const tone = item.status === "failed" ? "danger" : (item.status === "done" ? "success" : (item.status === "running" ? "info" : "secondary"));
+      const reviewBadge = item.review_required ? '<span class="badge text-bg-warning text-dark rounded-pill px-3 py-2">Revisión humana</span>' : '';
+      const errorHtml = item.error ? '<div class="small text-danger mt-3"><strong>Error:</strong> ' + escapeHtml(item.error) + '</div>' : '';
+      return '<div class="col-12 col-xl-6">' +
+        '<article class="monitor-job-card rounded-4 border bg-white p-4 h-100">' +
+          '<div class="d-flex flex-wrap justify-content-between gap-2 mb-3">' +
+            '<div>' +
+              '<div class="fw-semibold text-primary-emphasis">Job #' + escapeHtml(item.job_id) + ' · Mesa ' + escapeHtml(item.mesa_numero || '-') + '</div>' +
+              '<div class="small text-muted">Acta ' + escapeHtml(item.acta_id || '-') + ' · legacy ' + escapeHtml(item.legacy_id || '-') + '</div>' +
+            '</div>' +
+            '<div class="d-flex flex-wrap gap-2 justify-content-end">' +
+              '<span class="badge bg-' + tone + ' rounded-pill px-3 py-2">' + escapeHtml(item.stage_label || item.status || '-') + '</span>' +
+              reviewBadge +
+            '</div>' +
+          '</div>' +
+          '<div class="row g-2 small text-body-secondary">' +
+            '<div class="col-6"><strong>Encolado:</strong> ' + escapeHtml(item.created_at_label || '-') + '</div>' +
+            '<div class="col-6"><strong>Inicio:</strong> ' + escapeHtml(item.started_at_label || '-') + '</div>' +
+            '<div class="col-6"><strong>IA lista:</strong> ' + escapeHtml(item.transcription_at_label || '-') + '</div>' +
+            '<div class="col-6"><strong>Fin:</strong> ' + escapeHtml(item.finished_at_label || '-') + '</div>' +
+            '<div class="col-6"><strong>Tiempo total:</strong> ' + escapeHtml(item.duration_label || '-') + '</div>' +
+            '<div class="col-6"><strong>Tiempo IA:</strong> ' + escapeHtml(item.ai_duration_label || '-') + '</div>' +
+            '<div class="col-6"><strong>Validación:</strong> ' + escapeHtml(item.validation_status || '-') + '</div>' +
+            '<div class="col-6"><strong>Reintentos:</strong> ' + escapeHtml(item.retry_count || 0) + '</div>' +
+          '</div>' +
+          errorHtml +
+        '</article>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderEvents(items) {
+    const root = document.getElementById("monitorEvents");
+    if (!root) return;
+    if (!items || !items.length) {
+      root.innerHTML = '<div class="text-muted small">Sin eventos registrados.</div>';
+      return;
+    }
+    root.innerHTML = items.map(function(item){
+      const detail = item.detail || {};
+      const trigger = detail.trigger ? ' · ' + detail.trigger : '';
+      return '<div class="rounded-3 border p-3 bg-white">' +
+        '<div class="small fw-semibold text-primary-emphasis">' + escapeHtml(item.model_name || 'Sistema') + ' · ' + escapeHtml(item.action || 'evento') + '</div>' +
+        '<div class="small text-muted">' + escapeHtml(item.actor || 'sistema') + trigger + ' · ' + escapeHtml(item.created_at_label || '-') + '</div>' +
+        '<pre class="mb-0 mt-2 small text-body monitor-pre">' + escapeHtml(JSON.stringify(detail, null, 2)) + '</pre>' +
+      '</div>';
+    }).join("");
+  }
+
+  async function refreshMonitor() {
+    const query = activeBatchGroup ? ('?batch_group=' + encodeURIComponent(activeBatchGroup)) : '';
+    const response = await fetch(MONITOR_URL + query, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || "monitor_error");
+
+    if (data.current_batch && data.current_batch.batch_group) {
+      activeBatchGroup = data.current_batch.batch_group;
+      try { window.localStorage.setItem("pipeline-monitor-batch-group", activeBatchGroup); } catch(_) {}
+    }
+
+    document.getElementById("monitorBatchLabel").textContent = (data.current_batch && data.current_batch.batch_group) || "—";
+    document.getElementById("monitorAutoBatchLabel").textContent = data.config && data.config.auto_batch_enabled ? "Activo" : "Inactivo";
+    document.getElementById("monitorElapsed").textContent = data.current_batch ? data.current_batch.elapsed_total_label : "-";
+    document.getElementById("monitorEta").textContent = data.current_batch ? data.current_batch.eta_label : "-";
+    document.getElementById("monitorPending").textContent = data.current_batch ? data.current_batch.pending : 0;
+    document.getElementById("monitorRunning").textContent = data.current_batch ? data.current_batch.running : 0;
+    document.getElementById("monitorDone").textContent = data.current_batch ? data.current_batch.done : 0;
+    document.getElementById("monitorFailed").textContent = data.current_batch ? data.current_batch.failed : 0;
+    document.getElementById("summaryProcessed").textContent = data.system_summary ? (data.system_summary.processed_ok || 0) : 0;
+    document.getElementById("summaryObserved").textContent = data.system_summary ? (data.system_summary.open_low_conf_reviews || 0) : 0;
+    document.getElementById("summaryPending").textContent = data.system_summary ? (data.system_summary.pending_actas || 0) : 0;
+    document.getElementById("summaryRunningJobs").textContent = data.system_summary ? (data.system_summary.running_jobs || 0) : 0;
+
+    const pct = data.current_batch ? (data.current_batch.progress_pct || 0) : 0;
+    const bar = document.getElementById("monitorProgressBar");
+    if (bar) {
+      bar.style.width = pct + "%";
+      bar.textContent = pct + "%";
+      bar.className = "progress-bar " + (data.current_batch && data.current_batch.failed > 0 ? "bg-danger" : (pct >= 100 ? "bg-success" : "bg-primary"));
+    }
+
+    renderAnomalies(data.anomalies || []);
+    renderBatchHistory(data.last_batches || []);
+    renderTimeline(data.timeline || []);
+    renderAlerts(data.alerts || []);
+    renderJobs((data.current_batch && data.current_batch.rows && data.current_batch.rows.length) ? data.current_batch.rows : (data.recent_jobs || []));
+    renderEvents(data.recent_events || []);
+  }
+
+  refreshMonitor().catch(function(err){ console.error("monitor init falló", err); });
+  setInterval(function(){ refreshMonitor().catch(function(){}); }, 5000);
+  window.addEventListener("pipeline:monitor-refresh", function(){ refreshMonitor().catch(function(){}); });
+})();
+</script>
+{% endblock %}

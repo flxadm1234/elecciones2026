@@ -454,6 +454,7 @@
             <li class="breadcrumb-item"><a class="text-decoration-none" href="{% url 'dashboard' %}">Inicio</a></li>
             <li class="breadcrumb-item active" aria-current="page">
               {% if nav_active == 'dashboard' %}Dashboard
+              {% elif nav_active == 'monitor' %}Monitoreo IA
               {% elif nav_active == 'procesadas' %}Actas Procesadas
               {% elif nav_active == 'pendientes' %}Por Procesar
               {% elif nav_active == 'resultados' %}Resultados
@@ -518,6 +519,23 @@
 ></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    var debugUrl = 'http://127.0.0.1:7777/event';
+    var debugSession = 'pipeline-monitor-module';
+    function reportDebug(hypothesisId, msg, data) {
+      fetch(debugUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: debugSession,
+          runId: 'post-fix',
+          hypothesisId: hypothesisId,
+          location: 'core/templates/base.html',
+          msg: '[DEBUG] ' + msg,
+          data: data || {},
+          ts: Date.now()
+        })
+      }).catch(function(){});
+    }
     function syncAutoBatchLabel(checked) {
       var label = document.querySelector('.auto-batch-widget');
       if (!label) return;
@@ -529,6 +547,17 @@
       stateSpan.classList.toggle('text-muted', !checked);
     }
     var abToggle = document.getElementById('auto-batch-toggle');
+    var processForm = document.querySelector('form[action$="procesar-pendientes/"]');
+    if (processForm) {
+      // #region debug-point A:manual-batch-submit
+      processForm.addEventListener('submit', function() {
+        reportDebug('A', 'manual_batch_submit', {
+          action: processForm.getAttribute('action'),
+          disabled: !!processForm.querySelector('button[type="submit"]')?.disabled
+        });
+      });
+      // #endregion
+    }
     if (abToggle) {
       var lastStableChecked = !!abToggle.checked;
       abToggle.addEventListener('change', function() {
