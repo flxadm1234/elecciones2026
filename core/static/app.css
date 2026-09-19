@@ -22,7 +22,44 @@
   }
 }
 
-/* ---------- 2. Sidebar (Bootstrap offcanvas + fixed) ---------- */
+/* ---------- 2. Sidebar: Fixed desktop (≥992px) Navy visible · Offcanvas drawer mobile (<992px) ---------- */
+/* 2.1 Desktop ≥992px: sidebar PERMANENTE visible fixed left (override BS offcanvas-lg bug) */
+@media (min-width: 992px) {
+  #sidebarOffcanvas.app-sidebar.offcanvas-lg {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 272px !important;
+    height: 100vh !important;
+    visibility: visible !important;
+    transform: none !important;
+    background-color: #0F3A7D !important;
+    background-image: linear-gradient(180deg, #0F3A7D 0%, #0B2E63 100%) !important;
+    color: #fff !important;
+    border-right: 1px solid rgba(212,175,55,0.15) !important;
+    box-shadow: 2px 0 12px -2px rgba(15,58,125,0.35) !important;
+    z-index: 1;
+  }
+  #sidebarOffcanvas.app-sidebar .offcanvas-body {
+    padding: 0 !important;
+  }
+  /* Desktop sidebar = fixed permanent, NO backdrop needed */
+  .offcanvas-backdrop { display: none !important; }
+  /* Desktop: hide offcanvas-header (only visible on mobile) */
+  #sidebarOffcanvas .offcanvas-header.d-lg-none { display: none !important; }
+}
+
+/* 2.2 Mobile <992px: Bootstrap offcanvas drawer works normally */
+@media (max-width: 991.98px) {
+  #sidebarOffcanvas.app-sidebar.offcanvas-lg {
+    background-color: #0F3A7D !important;
+    background-image: linear-gradient(180deg, #0F3A7D 0%, #0B2E63 100%) !important;
+    color: #fff !important;
+    --bs-offcanvas-width: 288px;
+  }
+}
+
+/* 2.3 Sidebar scrollbar, nav link hover states (shared) */
 .app-sidebar::-webkit-scrollbar { width: 6px; }
 .app-sidebar::-webkit-scrollbar-thumb {
   background: rgba(255,255,255,0.18);

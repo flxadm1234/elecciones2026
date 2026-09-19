@@ -190,7 +190,11 @@ def _ensure_legacy_pending_synced() -> tuple[int, int]:
 
 
 def _sidebar_badge_counts(request):
-    """Retorna dict con badge_counts para sidebar (revisión baja confianza).
+    """Retorna dict con badge_counts para sidebar.
+
+    Keys: low_conf_review (ManualReviewQueue pending), pending (actas en
+    status pendiente/procesando), processed_ok (procesado_ok+revisado_ok),
+    error (actas status error), total (total actas).
 
     Adicionalmente: detecta actas NUEVAS en legacy actas_escrutinio que no existen
     aún en vps_actas y las crea como status=pendiente (lazy sync) — SÓLO INSERTA en vps_*.
@@ -208,7 +212,31 @@ def _sidebar_badge_counts(request):
         )
     except Exception:
         review_pending = 0
-    return {"badge_counts": {"low_conf_review": review_pending}}
+    try:
+        from .models import Acta
+        actas_qs = Acta.objects.all()
+        pending_count = actas_qs.filter(status__in=["pendiente", "procesando"]).count()
+        processed_ok = actas_qs.filter(status__in=["procesado_ok", "revisado_ok"]).count()
+        error_count = actas_qs.filter(status="error").count()
+        obs_count = actas_qs.filter(status="observado").count()
+        total = actas_qs.count()
+    except Exception:
+        pending_count = 0
+        processed_ok = 0
+        error_count = 0
+        obs_count = 0
+        total = 0
+    return {
+        "badge_counts": {
+            "low_conf_review": review_pending,
+            "pending": pending_count,
+            "processed_ok": processed_ok,
+            "processed_total": processed_ok + obs_count,
+            "error": error_count,
+            "observado": obs_count,
+            "total": total,
+        }
+    }
 
 
 def _inject_legacy_meta(actas_list):
@@ -1208,18 +1236,13 @@ def dashboard_stats_partial(request):
         t = row["acta_type"] or "desconocido"
         tipo_count[t] = actas_qs.filter(acta_type=row["acta_type"]).count()
 
-    try:
-        review_pending = ManualReviewQueue.objects.filter(status="pending").count()
-    except Exception:
-        review_pending = 0
-
     ctx = {
         "kpi": kpis,
         "totales_ambito": totales,
         "por_tipo": tipo_count,
-        "badge_counts": {"low_conf_review": review_pending},
         "is_super": bool(request.user and request.user.is_superuser),
     }
+    ctx.update(_sidebar_badge_counts(request))
     return render(request, "core/partials/dashboard_stats_partial.html", ctx)
 
 

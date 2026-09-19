@@ -319,7 +319,7 @@
   </defs>
 </svg>
 </head>
-<body class="bg-body-tertiary">
+<body class="bg-body-tertiary {% block body_class %}{% endblock %}">
 <a href="#main-content" class="visually-hidden-focusable position-fixed top-0 start-0 m-2 z-3 btn btn-sm btn-primary shadow">Saltar al contenido principal</a>
 
 {% include 'core/_sidebar.html' %}
