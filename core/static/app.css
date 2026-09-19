@@ -703,6 +703,47 @@ textarea:focus-visible,
   }
 }
 
+/* ---------- 13. Pipeline monitor ---------- */
+.monitor-shell {
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.98));
+}
+
+.monitor-panel {
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.monitor-progress {
+  height: 1rem;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.monitor-progress .progress-bar {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.monitor-kpi {
+  background: #fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
+}
+
+.monitor-scroll {
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.monitor-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.monitor-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
 @media (max-width: 399.98px) {
   .page-title {
     font-size: 1.75rem;

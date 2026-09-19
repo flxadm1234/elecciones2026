@@ -25,6 +25,7 @@ urlpatterns = [
     path("api/v1/progress.json", views.api_progress_snapshot, name="api_progress"),
     path("api/progress/snapshot/", views.api_progress_snapshot, name="api_progress_snapshot"),
     path("api/toggle-auto-batch/", views.config_toggle_autobatch_api, name="toggle_auto_batch"),
+    path("api/pipeline-monitor/", views.pipeline_monitor_api_json, name="pipeline_monitor_json"),
     path("api/ai-provider/save/", views.ai_provider_save_api, name="ai_provider_save"),
     path("api/ai-provider/<str:provider>/test/", views.ai_provider_test_api, name="ai_provider_test"),
     path("api/batch/<str:batch_group>/status/", views.batch_status_api_json, name="batch_status_json"),

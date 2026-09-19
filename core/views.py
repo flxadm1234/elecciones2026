@@ -18,7 +18,7 @@ from django.http import Http404, JsonResponse, HttpResponse, FileResponse
 from django.utils.encoding import smart_str
 from django.urls import reverse
 
-from .models import Acta, ActaVoteEntry, ManualReviewQueue, ActaImage, HumanCorrection, AuditLog, PoliticalOrganization, ActaTranscription
+from .models import Acta, ActaVoteEntry, ManualReviewQueue, ActaImage, HumanCorrection, AuditLog, PoliticalOrganization, ActaTranscription, ProcessingJob, ProcessingAlert, ProcessingConfig
 from .models_legacy import ActaEscrutinioLegacy, MesaLegacy
 from .forms import ActaFilterForm
 
@@ -404,11 +404,7 @@ def dashboard_view(request):
                 except ActaEscrutinioLegacy.DoesNotExist:
                     a.legacy_obj = None
 
-    try:
-        from .models import ProcessingConfig
-        processing_config = ProcessingConfig.get_solo()
-    except Exception:
-        processing_config = None
+    processing_config, processing_config_error = _get_processing_config_safe()
 
     v_batch_group = (request.GET.get("batch_group") or "").strip()[:32]
     v_flash_enq = request.GET.get("enq")
@@ -427,6 +423,7 @@ def dashboard_view(request):
         "is_super": is_super,
         "legacy_mode_warning": legacy_mode_warning,
         "processing_config": processing_config,
+        "processing_config_error": processing_config_error,
         "v_batch_group": v_batch_group,
         "v_flash_enq": int(v_flash_enq) if v_flash_enq and v_flash_enq.isdigit() else None,
         "v_flash_skip": int(v_flash_skip) if v_flash_skip and v_flash_skip.isdigit() else None,
@@ -451,6 +448,13 @@ def dashboard_view(request):
     }
     ctx.update(_sidebar_badge_counts(request))
     return render(request, "core/dashboard.html", ctx)
+
+
+def _get_processing_config_safe():
+    try:
+        return ProcessingConfig.get_solo(), None
+    except Exception as exc:
+        return None, str(exc)
 
 
 @login_required
@@ -2281,15 +2285,13 @@ def config_view(request):
 @require_http_methods(["POST"])
 def config_toggle_autobatch_api(request):
     """Flip (toggle) del flag auto_batch_enabled. Responde JSON. SUPER_ADMIN only."""
-    from .models import ProcessingConfig
     ok, err_resp = _superadmin_gate_or_403(request)
     if not ok:
         return JsonResponse({"ok": False, "error": "Permiso denegado"}, status=403)
 
-    try:
-        cfg = ProcessingConfig.get_solo()
-    except Exception as exc:
-        return JsonResponse({"ok": False, "error": f"No carga config: {exc}"}, status=500)
+    cfg, cfg_error = _get_processing_config_safe()
+    if cfg is None:
+        return JsonResponse({"ok": False, "error": f"No carga config: {cfg_error}", "requires_action": "migrate_processing_config"}, status=500)
 
     cfg.auto_batch_enabled = not bool(cfg.auto_batch_enabled)
     cfg.updated_by = request.user
@@ -2320,33 +2322,27 @@ def config_toggle_autobatch_api(request):
     })
 
 
-@login_required
-@require_http_methods(["GET"])
-def batch_status_api_json(request, batch_group: str):
-    """Retorna JSON con progreso en tiempo real de un lote batch_group.
-
-    Usa short-poll HTMX. Total, done/failed/running/pending + progress_pct +
-    filas detalle por job (legacy_id, mesa_numero, status, elapsed, ETA).
-    SUPER_ADMIN or is_staff gating.
-    """
-    from .models import ProcessingJob
-    from django.utils import timezone as dj_tz
-
-    is_ok = (getattr(request.user, "is_authenticated", False)
-             and (getattr(request.user, "is_superuser", False) or getattr(request.user, "is_staff", False)))
-    if not is_ok:
-        return JsonResponse({"ok": False, "error": "Autenticación requerida"}, status=403)
-
+def _serialize_batch_snapshot(batch_group: str):
     bg = (batch_group or "").strip()[:64]
     if not bg:
-        return JsonResponse({"ok": False, "error": "batch_group faltante"}, status=400)
+        return {
+            "batch_group": "",
+            "total": 0,
+            "done": 0,
+            "failed": 0,
+            "running": 0,
+            "pending": 0,
+            "cancelled": 0,
+            "finished": 0,
+            "progress_pct": 0,
+            "is_complete": False,
+            "elapsed_total_label": "-",
+            "eta_label": "-",
+            "rows": [],
+        }
 
-    # PostgreSQL JSONField: parameters->>'batch_group' == bg
-    jobs_qs = ProcessingJob.objects.select_related("acta").filter(
-        parameters__batch_group=bg
-    ).order_by("id")
+    jobs_qs = ProcessingJob.objects.select_related("acta").filter(parameters__batch_group=bg).order_by("id")
     jobs = list(jobs_qs)
-
     total = len(jobs)
     done = sum(1 for j in jobs if j.status == "done")
     failed = sum(1 for j in jobs if j.status == "failed")
@@ -2357,29 +2353,22 @@ def batch_status_api_json(request, batch_group: str):
     progress_pct = 0 if total == 0 else int(round(finished * 100.0 / total))
     is_complete = total > 0 and finished == total
 
-    now = dj_tz.now()
-    elapsed_total_secs = None
-    eta_secs_remaining = None
-    avg_per_job_secs = None
-    if jobs:
-        started_any = [j.started_at for j in jobs if j.started_at]
-        earliest = min(started_any) if started_any else None
-        if earliest:
-            elapsed_total_secs = max(0, int((now - earliest).total_seconds()))
-        if done > 0 and earliest:
-            avg_per_job_secs = max(1, int(elapsed_total_secs / max(1, done)))
-            remaining = max(0, total - finished)
-            eta_secs_remaining = remaining * avg_per_job_secs
+    now = datetime.now(timezone.utc)
+    started_any = [j.started_at for j in jobs if j.started_at]
+    earliest = min(started_any) if started_any else None
+    elapsed_total_secs = max(0, int((now - earliest).total_seconds())) if earliest else None
+    avg_per_job_secs = max(1, int(elapsed_total_secs / max(1, done))) if (earliest and done > 0 and elapsed_total_secs is not None) else None
+    eta_secs_remaining = (max(0, total - finished) * avg_per_job_secs) if avg_per_job_secs else None
 
     status_label_map = {
         "pending": "Pendiente",
-        "running": "En Proceso",
+        "running": "En proceso",
         "done": "Completado",
         "failed": "Fallido",
         "cancelled": "Cancelado",
     }
     rows = []
-    for j in jobs:
+    for j in jobs[:20]:
         params = j.parameters if isinstance(j.parameters, dict) else {}
         leg_id = params.get("legacy_id") or (getattr(j.acta, "acta_escrutinio_legacy_id", None) if j.acta_id else None)
         mesa = params.get("mesa_numero") or (getattr(j.acta, "table_number", "") if j.acta_id else "") or "-"
@@ -2387,10 +2376,6 @@ def batch_status_api_json(request, batch_group: str):
         if j.started_at:
             ref = j.finished_at or now
             elapsed = int((ref - j.started_at).total_seconds())
-        err = ""
-        if j.status == "failed" and j.result:
-            r = j.result if isinstance(j.result, dict) else {}
-            err = str(r.get("error") or r.get("message") or "")[:200]
         rows.append({
             "job_id": j.id,
             "legacy_id": leg_id,
@@ -2399,16 +2384,11 @@ def batch_status_api_json(request, batch_group: str):
             "status": j.status,
             "status_label": status_label_map.get(j.status, j.status),
             "retry_count": getattr(j, "retry_count", 0) or 0,
-            "elapsed_secs": elapsed,
             "elapsed_label": _fmt_mmss(elapsed),
-            "error": err,
-            "created_at": j.created_at.isoformat() if j.created_at else None,
-            "started_at": j.started_at.isoformat() if j.started_at else None,
-            "finished_at": j.finished_at.isoformat() if j.finished_at else None,
+            "error": (j.error_message or "")[:220],
         })
 
-    return JsonResponse({
-        "ok": True,
+    return {
         "batch_group": bg,
         "total": total,
         "done": done,
@@ -2419,14 +2399,120 @@ def batch_status_api_json(request, batch_group: str):
         "finished": finished,
         "progress_pct": progress_pct,
         "is_complete": is_complete,
-        "elapsed_total_secs": elapsed_total_secs,
         "elapsed_total_label": _fmt_mmss(elapsed_total_secs),
-        "avg_per_job_secs": avg_per_job_secs,
-        "avg_per_job_label": _fmt_mmss(avg_per_job_secs),
-        "eta_secs_remaining": eta_secs_remaining,
         "eta_label": _fmt_mmss(eta_secs_remaining),
         "rows": rows,
-        "generated_at": now.isoformat(),
+    }
+
+
+@login_required
+@require_http_methods(["GET"])
+def batch_status_api_json(request, batch_group: str):
+    """Retorna JSON con progreso en tiempo real de un lote batch_group.
+
+    Usa short-poll HTMX. Total, done/failed/running/pending + progress_pct +
+    filas detalle por job (legacy_id, mesa_numero, status, elapsed, ETA).
+    SUPER_ADMIN or is_staff gating.
+    """
+    is_ok = (getattr(request.user, "is_authenticated", False)
+             and (getattr(request.user, "is_superuser", False) or getattr(request.user, "is_staff", False)))
+    if not is_ok:
+        return JsonResponse({"ok": False, "error": "Autenticación requerida"}, status=403)
+
+    bg = (batch_group or "").strip()[:64]
+    if not bg:
+        return JsonResponse({"ok": False, "error": "batch_group faltante"}, status=400)
+    payload = _serialize_batch_snapshot(bg)
+    payload["ok"] = True
+    payload["generated_at"] = datetime.now(timezone.utc).isoformat()
+    return JsonResponse(payload)
+
+
+@login_required
+@require_http_methods(["GET"])
+def pipeline_monitor_api_json(request):
+    is_ok = (getattr(request.user, "is_authenticated", False)
+             and (getattr(request.user, "is_superuser", False) or getattr(request.user, "is_staff", False)))
+    if not is_ok:
+        return JsonResponse({"ok": False, "error": "Autenticación requerida"}, status=403)
+
+    cfg, cfg_error = _get_processing_config_safe()
+    requested_bg = (request.GET.get("batch_group") or "").strip()[:64]
+
+    latest_jobs = list(ProcessingJob.objects.select_related("acta").order_by("-created_at")[:25])
+    current_bg = requested_bg
+    if not current_bg:
+        for job in latest_jobs:
+            params = job.parameters if isinstance(job.parameters, dict) else {}
+            bg = (params.get("batch_group") or "").strip()
+            if bg and job.status in {"pending", "running", "failed"}:
+                current_bg = bg
+                break
+        if not current_bg:
+            for job in latest_jobs:
+                params = job.parameters if isinstance(job.parameters, dict) else {}
+                bg = (params.get("batch_group") or "").strip()
+                if bg:
+                    current_bg = bg
+                    break
+
+    batch_payload = _serialize_batch_snapshot(current_bg) if current_bg else _serialize_batch_snapshot("")
+
+    alerts_qs = ProcessingAlert.objects.select_related("acta", "job").filter(acknowledged=False).order_by("-created_at")[:8]
+    alerts = [{
+        "severity": a.severity,
+        "alert_type": a.alert_type,
+        "message": a.message[:180],
+        "acta_id": a.acta_id,
+        "job_id": a.job_id,
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+    } for a in alerts_qs]
+
+    audit_qs = AuditLog.objects.order_by("-created_at")[:12]
+    audit_rows = [{
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+        "action": a.action,
+        "model_name": a.model_name,
+        "actor": getattr(a.actor, "username", None),
+        "detail": a.detail if isinstance(a.detail, dict) else {},
+    } for a in audit_qs]
+
+    job_rows = []
+    for job in latest_jobs[:10]:
+        params = job.parameters if isinstance(job.parameters, dict) else {}
+        job_rows.append({
+            "job_id": job.id,
+            "status": job.status,
+            "legacy_id": params.get("legacy_id"),
+            "batch_group": params.get("batch_group"),
+            "mesa_numero": params.get("mesa_numero") or (getattr(job.acta, "table_number", "") if job.acta_id else ""),
+            "retry_count": job.retry_count or 0,
+            "error": (job.error_message or "")[:160],
+        })
+
+    anomalies = []
+    if cfg_error:
+        anomalies.append({"severity": "critical", "message": f"Configuración batch no disponible: {cfg_error}"})
+    if batch_payload.get("failed", 0) > 0:
+        anomalies.append({"severity": "warning", "message": f"El lote actual registra {batch_payload['failed']} job(s) fallidos."})
+    if alerts:
+        anomalies.append({"severity": alerts[0]["severity"], "message": alerts[0]["message"]})
+
+    return JsonResponse({
+        "ok": True,
+        "config": {
+            "available": cfg is not None,
+            "error": cfg_error,
+            "auto_batch_enabled": bool(getattr(cfg, "auto_batch_enabled", False)) if cfg else False,
+            "poll_progress_interval_secs": int(getattr(cfg, "poll_progress_interval_secs", 3) or 3) if cfg else 3,
+            "max_batch_size_per_dispatch": int(getattr(cfg, "max_batch_size_per_dispatch", 8) or 8) if cfg else None,
+        },
+        "current_batch": batch_payload,
+        "recent_jobs": job_rows,
+        "recent_events": audit_rows,
+        "alerts": alerts,
+        "anomalies": anomalies,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     })
 
 

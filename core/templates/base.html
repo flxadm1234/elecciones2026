@@ -479,7 +479,7 @@
                     {% if config.auto_batch_enabled %}checked{% endif %}
                     hx-post="{% url 'toggle_auto_batch' %}"
                     hx-swap="none"
-                    hx-header='X-CSRFToken: "{{ csrf_token }}"'
+                    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
                     hx-trigger="change"
                   />
                 </span>
@@ -487,15 +487,17 @@
             </form>
             <form method="post" action="{% url 'procesar_pendientes' %}" class="m-0 d-inline-flex">
               {% csrf_token %}
-              <button class="btn-procesar-lote btn btn-primary fw-semibold" type="submit">
+              <button class="btn-procesar-lote btn btn-primary fw-semibold" type="submit" {% if batch_button_disabled %}disabled aria-disabled="true" title="No hay actas pendientes por procesar en este momento"{% endif %}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><polygon points="6 3 20 12 6 21 6 3"/></svg>
                 Procesar Lote
               </button>
             </form>
+            {% if is_super %}
             <a class="btn btn-outline-secondary btn-sm fw-semibold" href="{% url 'config_view' %}" title="Configuraci&oacute;n IA y Pipeline">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-              IA
+              Configurar IA
             </a>
+            {% endif %}
           {% endif %}
         </div>
       </div>
@@ -516,18 +518,55 @@
 ></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    function syncAutoBatchLabel(checked) {
+      var label = document.querySelector('.auto-batch-widget');
+      if (!label) return;
+      var stateSpan = label.querySelector('.auto-state');
+      label.setAttribute('data-active', checked ? 'true' : 'false');
+      if (!stateSpan) return;
+      stateSpan.textContent = checked ? 'ACTIVO' : 'INACTIVO';
+      stateSpan.classList.toggle('text-primary', !!checked);
+      stateSpan.classList.toggle('text-muted', !checked);
+    }
     var abToggle = document.getElementById('auto-batch-toggle');
     if (abToggle) {
+      var lastStableChecked = !!abToggle.checked;
       abToggle.addEventListener('change', function() {
-        var label = document.querySelector('.auto-batch-widget');
-        if (!label) return;
-        var stateSpan = label.querySelector('.auto-state');
-        if (abToggle.checked) {
-          label.setAttribute('data-active', 'true');
-          if (stateSpan) { stateSpan.textContent = 'ACTIVO'; stateSpan.classList.remove('text-muted'); stateSpan.classList.add('text-primary'); }
-        } else {
-          label.setAttribute('data-active', 'false');
-          if (stateSpan) { stateSpan.textContent = 'INACTIVO'; stateSpan.classList.remove('text-primary'); stateSpan.classList.add('text-muted'); }
+        lastStableChecked = !abToggle.checked;
+        syncAutoBatchLabel(!!abToggle.checked);
+      });
+    }
+
+    if (window.htmx) {
+      document.body.addEventListener('htmx:beforeRequest', function(evt) {
+        if (evt.target && evt.target.id === 'auto-batch-toggle') {
+          evt.target.disabled = true;
+        }
+      });
+      document.body.addEventListener('htmx:responseError', function(evt) {
+        if (evt.target && evt.target.id === 'auto-batch-toggle') {
+          evt.target.disabled = false;
+          abToggle.checked = lastStableChecked;
+          syncAutoBatchLabel(lastStableChecked);
+          if (window.showToast) window.showToast('No se pudo cambiar Auto-lote. Revisa el monitor para ver el detalle.', 'error', 4200);
+          window.dispatchEvent(new CustomEvent('pipeline:monitor-refresh'));
+        }
+      });
+      document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.target && evt.target.id === 'auto-batch-toggle') {
+          evt.target.disabled = false;
+          if (evt.detail && evt.detail.successful && evt.detail.xhr) {
+            try {
+              var payload = JSON.parse(evt.detail.xhr.responseText || '{}');
+              if (typeof payload.auto_batch_enabled === 'boolean') {
+                abToggle.checked = payload.auto_batch_enabled;
+                lastStableChecked = payload.auto_batch_enabled;
+                syncAutoBatchLabel(payload.auto_batch_enabled);
+              }
+            } catch (_) {}
+            if (window.showToast) window.showToast('Auto-lote actualizado correctamente.', 'success', 2600);
+            window.dispatchEvent(new CustomEvent('pipeline:monitor-refresh'));
+          }
         }
       });
     }
