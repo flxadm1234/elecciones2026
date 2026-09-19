@@ -24,7 +24,7 @@
             Revisado
           </span>
         {% else %}
-          <span class="badge rounded-pill text-bg-warning d-inline-flex align-items-center gap-1.5 px-3 py-1.5" style="background:#D4AF37 !important;border-color:#D4AF37 !important;color:#fff !important">
+          <span class="badge rounded-pill text-bg-warning d-inline-flex align-items-center gap-1.5 px-3 py-1.5" style="background:#D4AF37 !important;border-color:#D4AF37 !important;color:#0F3A7D !important">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-clock"/></svg>
             Pendiente
           </span>
@@ -36,7 +36,7 @@
           Confianza {{ conf_pct|default:"N/D" }}%
         </span>
       {% elif conf_level == 'medium' %}
-        <span class="badge rounded-pill text-bg-warning px-3 py-1.5">Media {{ conf_pct|default:"N/D" }}%</span>
+        <span class="badge rounded-pill text-bg-warning px-3 py-1.5" style="color:#0F3A7D !important">Media {{ conf_pct|default:"N/D" }}%</span>
       {% else %}
         <span class="badge rounded-pill text-bg-success d-inline-flex align-items-center gap-1.5 px-3 py-1.5">Confianza {{ conf_pct|default:"N/D" }}%</span>
       {% endif %}
@@ -45,7 +45,7 @@
   <div class="d-flex align-items-center gap-2 flex-shrink-0">
     <a class="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-1.5 fw-semibold" href="{% url 'acta_detail' acta.id %}">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-file-text"/></svg>
-      Ver Detalle
+      Ver Detalle del Acta
     </a>
   </div>
 </div>
@@ -87,7 +87,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-edit-3"/></svg>
           Correcci&oacute;n de Votos por &Aacute;mbito
         </h2>
-        <p class="small text-muted mb-0">Modifique los valores y se guardan al perder foco (auto-save blur). Cada cambio se audita en tiempo real con trazabilidad completa.</p>
+        <p class="small text-muted mb-0">Corrija los valores detectados por la IA y el sistema guardar&aacute; autom&aacute;ticamente al perder foco. Cada ajuste queda auditado con trazabilidad completa y actualizaci&oacute;n inmediata de totales.</p>
       </header>
 
       <div class="review-form__body card-body px-4 pb-3 pt-0 flex-grow-1 d-flex flex-column">
@@ -161,7 +161,7 @@
                   {% org_logo_or_icon org_name %}
                   <span title="{{ org_name }}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:normal;line-height:1.22;font-weight:700;font-size:.9rem">{{ org_name }}</span>
                 {% elif cat == "blanco" %}
-                  <span class="badge rounded-pill text-bg-warning d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold" style="background:#D4AF37 !important;color:#fff !important">
+                  <span class="badge rounded-pill text-bg-warning d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold" style="background:#D4AF37 !important;color:#0F3A7D !important">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-circle"/></svg>
                     Blancos
                   </span>
@@ -228,7 +228,7 @@
               <div class="text-muted fw-medium small">No hay registros de votos para este &aacute;mbito.</div>
               {% if acta.layout_flags and acta.layout_flags.single_column_iquitos and amb == "muni_distrital" %}
                 <div class="mt-3">
-                  <span class="badge rounded-pill text-bg-warning d-inline-flex align-items-center gap-1.5 px-3 py-1.5 small" style="background:#D4AF37 !important;color:#fff !important">
+                  <span class="badge rounded-pill text-bg-warning d-inline-flex align-items-center gap-1.5 px-3 py-1.5 small" style="background:#D4AF37 !important;color:#0F3A7D !important">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-circle"/></svg>
                     Regla IQUITOS: este acta solo contiene Municipal Provincial.
                   </span>
@@ -281,7 +281,7 @@
     var state = { zoom: 1, rotate: 0, tx: 0, ty: 0 };
     var ZOOM_STEP = 0.12, ZOOM_MIN = 0.25, ZOOM_MAX = 5;
     function applyTransform() {
-      img.style.transform = 'translate('+state.tx+'px,'+state.ty+'px) scale('+state.zoom+') rotate('+state.rotate+'deg)';
+      img.style.transform = 'translate(-50%, -50%) translate('+state.tx+'px,'+state.ty+'px) scale('+state.zoom+') rotate('+state.rotate+'deg)';
     }
     function setZoom(z, cx, cy) {
       z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(+z).toFixed(3)));
@@ -350,7 +350,14 @@
       else if (k === '-' || k === '_') document.getElementById('btnZoomOut').click();
     });
     function fitInit(){
-      state = { zoom:1, rotate:0, tx:0, ty:0 }; applyTransform();
+      var wrapW = wrap.clientWidth || 1;
+      var wrapH = wrap.clientHeight || 1;
+      var imgW = img.naturalWidth || img.width || 1;
+      var imgH = img.naturalHeight || img.height || 1;
+      var fit = Math.min((wrapW - 48) / imgW, (wrapH - 48) / imgH);
+      if (!isFinite(fit) || fit <= 0) fit = 1;
+      state = { zoom: Math.min(1, +fit.toFixed(3)), rotate:0, tx:0, ty:0 };
+      applyTransform();
     }
     if (img.complete) fitInit();
     img.addEventListener('load', fitInit);

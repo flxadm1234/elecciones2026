@@ -17,17 +17,17 @@
       Acta #{{ acta.id }}
       {% if acta.status == "procesado_ok" %}<span class="badge text-bg-success rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5"><svg class="i" width="13" height="13"><use href="#i-check-circle"/></svg> Procesado</span>
       {% elif acta.status == "revisado_ok" %}<span class="badge rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5 text-bg-primary"><svg class="i" width="13" height="13"><use href="#i-user"/></svg> Revisado</span>
-      {% elif acta.status == "observado" %}<span class="badge text-bg-warning rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5" style="color:#78350f!important"><svg class="i" width="13" height="13"><use href="#i-alert-triangle"/></svg> Observado</span>
+      {% elif acta.status == "observado" %}<span class="badge text-bg-warning rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5" style="color:#0F3A7D!important"><svg class="i" width="13" height="13"><use href="#i-alert-triangle"/></svg> Observado</span>
       {% elif acta.status == "error" %}<span class="badge text-bg-danger rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5"><svg class="i" width="13" height="13"><use href="#i-x-circle"/></svg> Error</span>
       {% elif acta.status == "procesando" %}<span class="badge text-bg-info rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5"><svg class="i" width="13" height="13"><use href="#i-refresh-cw"/></svg> Procesando</span>
       {% else %}<span class="badge rounded-pill bg-secondary-subtle text-secondary fs-xs px-3 py-1.5">{{ acta.status }}</span>{% endif %}
     </h1>
   </div>
   <div class="page-head-actions d-flex flex-wrap gap-2">
-    <a class="btn btn-outline-secondary btn-sm" href="{% url 'actas_procesadas' %}">
+    <a class="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-2" href="{% url 'actas_procesadas' %}">
       <svg class="i" width="15" height="15"><use href="#i-chevron-left"/></svg> Volver
     </a>
-    <button type="button" class="btn btn-outline-primary btn-sm"
+    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill d-inline-flex align-items-center gap-2"
             data-acta-view="{{ acta.id }}"
             data-img-url="{% url 'serve_acta_image' acta_pk=acta.id %}"
             data-meta="Mesa {{ acta.table_number|default:acta.legacy_mesa_num }} · {{ acta.acta_type|upper }}"
@@ -36,18 +36,18 @@
       <svg class="i" width="15" height="15"><use href="#i-image"/></svg> Ver Acta
     </button>
     {% if conf_level == 'low' %}
-    <a class="btn btn-warning btn-sm text-dark fw-semibold" href="{% url 'review_split' acta_pk=acta.pk %}">
+    <a class="btn btn-warning btn-sm text-dark fw-semibold rounded-pill d-inline-flex align-items-center gap-2" href="{% url 'review_split' acta_pk=acta.pk %}">
       <svg class="i" width="15" height="15"><use href="#i-edit-3"/></svg> Revisar Acta
     </a>
     {% elif review_exists %}
-    <a class="btn btn-outline-warning btn-sm" href="{% url 'review_split' acta_pk=acta.pk %}">
+    <a class="btn btn-outline-warning btn-sm rounded-pill d-inline-flex align-items-center gap-2" href="{% url 'review_split' acta_pk=acta.pk %}">
       <svg class="i" width="15" height="15"><use href="#i-eye"/></svg> Abrir Revisión
     </a>
     {% endif %}
     {% if is_super %}
     <form method="post" action="{% url 'procesar_pendientes' %}" class="htmx-spin d-inline" style="display:inline">
       {% csrf_token %}
-      <button class="btn btn-outline-secondary btn-sm" type="submit">
+      <button class="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-2" type="submit">
         <svg class="i" width="15" height="15"><use href="#i-refresh-cw"/></svg> Reprocesar
       </button>
     </form>
@@ -252,7 +252,7 @@
                       Voto en Blanco
                     </span>
                   {% elif e.entry_category == "nulo" %}
-                    <span class="badge text-bg-warning rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 fw-semibold" style="font-size:12px;color:#78350f">Voto Nulo</span>
+                    <span class="badge text-bg-warning rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 fw-semibold" style="font-size:12px;color:#0F3A7D">Voto Nulo</span>
                   {% elif e.entry_category == "impugnado" %}
                     <span class="badge text-bg-danger rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 fw-semibold" style="font-size:12px">Voto Impugnado</span>
                   {% elif e.entry_category == "total" %}
@@ -325,7 +325,7 @@
           <dt class="col-sm-4 text-muted fw-medium">Layout detectado</dt>
           <dd class="col-sm-8 mb-3">
             {% if acta.layout_flags and acta.layout_flags.single_column_iquitos %}
-              <span class="badge text-bg-warning rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" style="color:#78350f">
+              <span class="badge text-bg-warning rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" style="color:#0F3A7D">
                 <svg class="i" width="12" height="12"><use href="#i-alert-triangle"/></svg> IQUITOS 1 columna
               </span>
             {% else %}

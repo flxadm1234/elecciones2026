@@ -14,7 +14,7 @@ import hashlib
 import os
 from pathlib import Path
 
-_APP_BUILD = "20260918-010"   # YYYYMMDD-NNN; incrementar manual. Build 010: FIX sidebar visible desktop (regla CSS app.css override BS offcanvas-lg bg-transparent). Añadido badge_counts.pending, body_class block en base.html. Build 009: MIGRACIÓN COMPLETA UI BOOTSTRAP 5.3.3 CDN SRI. Paleta CORPORATIVA Navy #0F3A7D + Dorado #D4AF37.
+_APP_BUILD = "20260918-011"   # YYYYMMDD-NNN; incrementar manual. Build 011: refinamiento integral UI/UX. Contraste AA sidebar/footer y badges warning, sistema visual base en app.css (spacing 8px, radios, sombras, transiciones), icon sprite extendido, review_split fit-to-view y filas de votos responsive. Build 010: FIX sidebar visible desktop y badge_counts.pending.
 
 def _file_hash(p: Path) -> str:
     """Devuelve 10 primeros hexdigitos SHA256 de un archivo (si existe)."""

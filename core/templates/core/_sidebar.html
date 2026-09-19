@@ -49,7 +49,7 @@
             <a class="sidebar-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-2 text-white-50 text-decoration-none transition-all border-start border-4 border-transparent {% if nav_active == 'procesadas' %}is-active text-white bg-white bg-opacity-10 border-warning{% endif %}" href="{% url 'actas_procesadas' %}">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0"><use href="#i-folder-check"/></svg>
               <span class="flex-grow-1 fs-sm">Actas Procesadas</span>
-              {% if badge_counts.low_conf_review %}<span class="sidebar-badge badge rounded-pill bg-danger bg-opacity-90 text-white fs-xs px-2 py-1">{{ badge_counts.low_conf_review }}</span>{% endif %}
+              {% if badge_counts.processed_total %}<span class="sidebar-badge badge rounded-pill bg-light text-primary fs-xs fw-bold px-2 py-1">{{ badge_counts.processed_total }}</span>{% endif %}
             </a>
           </li>
           <li>
@@ -129,6 +129,9 @@
         <div class="sidebar-user flex-grow-1 min-w-0">
           <div class="sidebar-user-name fw-semibold text-white small text-truncate">
             {% firstof request.user.get_full_name request.user.username "Usuario" %}
+          </div>
+          <div class="sidebar-user-meta mt-1">
+            Sesion activa
           </div>
           <div class="sidebar-user-role mt-1">
             {% if is_super %}
