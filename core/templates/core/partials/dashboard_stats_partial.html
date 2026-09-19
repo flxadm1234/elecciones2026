@@ -1,0 +1,249 @@
+<div id="dashboard-realtime"
+     hx-poll="15000"
+     hx-get="{% url 'dashboard_stats_partial' %}"
+     hx-swap="outerHTML"
+     hx-indicator="#realtime-spinner"
+     aria-live="polite">
+
+  {# KPI GRID 4 CARDS #}
+  <div class="row row-cols-1 row-cols-sm-2 row-cols-xxl-4 g-3 g-lg-4 mb-4">
+    <div class="col">
+      <div class="card rounded-4 border-0 shadow-sm h-100 cursor-pointer"
+           tabindex="0" role="link" aria-label="Actas procesadas y pendientes"
+           onclick="window.location.href='{% url 'actas_pendientes' %}'"
+           style="background:linear-gradient(135deg,rgba(15,58,125,.06),rgba(40,96,201,.03))">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-start justify-content-between mb-3">
+            <div class="d-flex align-items-center justify-content-center rounded-3" style="width:44px;height:44px;background:rgba(15,58,125,.1);color:#0F3A7D">
+              <svg width="20" height="20"><use href="#i-banknote"/></svg>
+            </div>
+          </div>
+          <div class="small fw-semibold mb-1 text-uppercase" style="letter-spacing:.5px;color:#64748b">Actas Registradas (BD)</div>
+          <div class="fw-extrabold mb-3" style="font-size:clamp(1.5rem,2.3vw,2rem);color:#0F3A7D;letter-spacing:-.01em;line-height:1.1">{{ kpi.legacy_total }}</div>
+          <div class="d-flex flex-wrap gap-2">
+            <span class="badge rounded-pill text-bg-success d-inline-flex align-items-center gap-1 fw-semibold px-3 py-1.5" style="font-size:11px">
+              <svg width="12" height="12"><use href="#i-check-circle"/></svg>
+              {{ kpi.legacy_procesados }} Procesadas
+            </span>
+            <span class="badge rounded-pill d-inline-flex align-items-center gap-1 fw-semibold px-3 py-1.5" style="font-size:11px;background:rgba(212,175,55,.12);color:#854d0e;border:1px solid rgba(212,175,55,.25)">
+              <svg width="12" height="12"><use href="#i-clock"/></svg>
+              {{ kpi.legacy_pendientes }} Pendientes
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card rounded-4 border-0 shadow-sm h-100 cursor-pointer"
+           tabindex="0" role="link" aria-label="Ver actas procesadas OK"
+           onclick="window.location.href='{% url 'actas_procesadas' %}?status=procesado_ok'"
+           style="background:linear-gradient(135deg,rgba(22,163,74,.06),rgba(16,185,129,.03))">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-start justify-content-between mb-3">
+            <div class="d-flex align-items-center justify-content-center rounded-3" style="width:44px;height:44px;background:rgba(22,163,74,.1);color:#15803d">
+              <svg width="20" height="20"><use href="#i-checks"/></svg>
+            </div>
+          </div>
+          <div class="small fw-semibold mb-1 text-uppercase" style="letter-spacing:.5px;color:#64748b">Procesadas OK</div>
+          <div class="fw-extrabold mb-3" style="font-size:clamp(1.5rem,2.3vw,2rem);color:#15803d;letter-spacing:-.01em;line-height:1.1">{{ kpi.ok }}</div>
+          <div class="d-flex flex-wrap gap-2">
+            <span class="badge rounded-pill d-inline-flex align-items-center gap-1 fw-semibold px-3 py-1.5" style="font-size:11px;background:rgba(14,165,233,.1);color:#075985;border:1px solid rgba(14,165,233,.2)">
+              <svg width="12" height="12"><use href="#i-user"/></svg>
+              Revisadas: {{ kpi.revisado }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card rounded-4 border-0 shadow-sm h-100 cursor-pointer"
+           tabindex="0" role="link" aria-label="Ver actas observadas para revisión"
+           onclick="window.location.href='{% url 'actas_procesadas' %}?status=observado'"
+           style="background:linear-gradient(135deg,rgba(212,175,55,.08),rgba(251,191,36,.04))">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-start justify-content-between mb-3">
+            <div class="d-flex align-items-center justify-content-center rounded-3" style="width:44px;height:44px;background:rgba(212,175,55,.15);color:#854d0e">
+              <svg width="20" height="20"><use href="#i-alert-triangle"/></svg>
+            </div>
+          </div>
+          <div class="small fw-semibold mb-1 text-uppercase" style="letter-spacing:.5px;color:#64748b">Observadas</div>
+          <div class="fw-extrabold mb-3" style="font-size:clamp(1.5rem,2.3vw,2rem);color:#854d0e;letter-spacing:-.01em;line-height:1.1">{{ kpi.observado }}</div>
+          <div class="d-flex flex-wrap gap-2">
+            <span class="small text-muted" style="font-size:12px">Requieren revisión humana</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card rounded-4 border-0 shadow-sm h-100 cursor-pointer"
+           tabindex="0" role="link" aria-label="Ver actas pendientes y cola"
+           onclick="window.location.href='{% url 'actas_pendientes' %}'"
+           style="background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(56,189,248,.03))">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-start justify-content-between mb-3">
+            <div class="d-flex align-items-center justify-content-center rounded-3" style="width:44px;height:44px;background:rgba(14,165,233,.1);color:#075985">
+              <svg width="20" height="20"><use href="#i-clock"/></svg>
+            </div>
+          </div>
+          <div class="small fw-semibold mb-1 text-uppercase" style="letter-spacing:.5px;color:#64748b">Pendientes + Cola</div>
+          <div class="fw-extrabold mb-3" style="font-size:clamp(1.5rem,2.3vw,2rem);color:#0F3A7D;letter-spacing:-.01em;line-height:1.1">{{ kpi.pendiente }}</div>
+          <div class="d-flex flex-wrap gap-2">
+            <span class="badge rounded-pill text-bg-danger d-inline-flex align-items-center gap-1 fw-semibold px-3 py-1.5" style="font-size:11px">
+              <svg width="12" height="12"><use href="#i-x-circle"/></svg>
+              Errores: {{ kpi.error }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ÁMBITOS CARD #}
+  <div class="card rounded-4 border-0 shadow-sm mb-4">
+    <div class="card-body p-4 p-lg-5">
+      <div class="d-flex flex-wrap align-items-start justify-content-between mb-4 gap-3">
+        <div>
+          <h2 class="h5 fw-bold mb-1 text-navy">Totales · Votos por Ámbito</h2>
+          <div class="small text-muted" style="line-height:1.5">Suma consolidada de organizaciones políticas en actas procesadas</div>
+        </div>
+      </div>
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3">
+        <div class="col">
+          <div class="card rounded-4 h-100 border-0 cursor-pointer scope-card"
+               tabindex="0" role="link" aria-label="Votos Municipal Provincial"
+               onclick="window.location.href='{% url 'actas_procesadas' %}?ambito=muni_provincial'">
+            <div class="card-body p-4">
+              <div class="d-flex align-items-center gap-2 mb-2 text-navy">
+                <svg width="14" height="14"><use href="#i-building-2"/></svg>
+                <span class="fw-bold small">Municipal Provincial</span>
+              </div>
+              <div class="fw-extrabold" style="font-size:1.7rem;color:#0F3A7D;letter-spacing:-.01em">{{ totales_ambito.muni_provincial }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card rounded-4 h-100 border-0 cursor-pointer scope-card"
+               tabindex="0" role="link" aria-label="Votos Municipal Distrital"
+               onclick="window.location.href='{% url 'actas_procesadas' %}?ambito=muni_distrital'">
+            <div class="card-body p-4">
+              <div class="d-flex align-items-center gap-2 mb-2 text-navy">
+                <svg width="14" height="14"><use href="#i-map-pin"/></svg>
+                <span class="fw-bold small">Municipal Distrital</span>
+              </div>
+              <div class="fw-extrabold" style="font-size:1.7rem;color:#0F3A7D;letter-spacing:-.01em">{{ totales_ambito.muni_distrital }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card rounded-4 h-100 border-0 cursor-pointer scope-card"
+               tabindex="0" role="link" aria-label="Votos Gobernador y Vicegobernador"
+               onclick="window.location.href='{% url 'actas_procesadas' %}?ambito=gob_gobernador_vice'">
+            <div class="card-body p-4">
+              <div class="d-flex align-items-center gap-2 mb-2 text-navy">
+                <svg width="14" height="14"><use href="#i-users"/></svg>
+                <span class="fw-bold small">Gobernador + Vice</span>
+              </div>
+              <div class="fw-extrabold" style="font-size:1.7rem;color:#0F3A7D;letter-spacing:-.01em">{{ totales_ambito.gob_gobernador_vice }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card rounded-4 h-100 border-0 cursor-pointer scope-card"
+               tabindex="0" role="link" aria-label="Votos Consejero Regional"
+               onclick="window.location.href='{% url 'actas_procesadas' %}?ambito=consejero_regional'">
+            <div class="card-body p-4">
+              <div class="d-flex align-items-center gap-2 mb-2 text-navy">
+                <svg width="14" height="14"><use href="#i-building-2"/></svg>
+                <span class="fw-bold small">Consejero Regional</span>
+              </div>
+              <div class="fw-extrabold" style="font-size:1.7rem;color:#0F3A7D;letter-spacing:-.01em">{{ totales_ambito.consejero_regional }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mt-4 pt-3" style="border-top:1px solid #f1f5f9">
+        {% for t, n in por_tipo.items %}
+          <span class="badge rounded-pill d-inline-flex align-items-center gap-1.5 px-3 py-2 fw-semibold"
+                style="font-size:11.5px;background:rgba(15,58,125,.06);color:#0F3A7D;border:1px solid rgba(15,58,125,.12)">
+            <svg width="12" height="12"><use href="#i-vote"/></svg>
+            Tipo: <b>{{ t }}</b> → {{ n }}
+          </span>
+        {% empty %}
+          <span class="badge rounded-pill d-inline-flex align-items-center gap-1.5 px-3 py-2 fw-semibold"
+                style="font-size:11.5px;background:rgba(212,175,55,.12);color:#854d0e;border:1px solid rgba(212,175,55,.25)">
+            <svg width="12" height="12"><use href="#i-info"/></svg>
+            Aún sin actas procesadas.
+          </span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {# CHARTS ROW 1: Donut + Ámbitos Bar #}
+  <div class="row row-cols-1 row-cols-lg-2 g-3 g-lg-4 mb-4">
+    <div class="col">
+      <div class="card rounded-4 border-0 shadow-sm h-100">
+        <div class="card-body p-4 p-lg-5">
+          <div class="d-flex flex-wrap align-items-start justify-content-between mb-4 gap-3">
+            <div>
+              <h2 class="fw-bold mb-1 text-navy" style="font-size:1.05rem;letter-spacing:-.005em">Distribución por Estado</h2>
+              <div class="small text-muted" style="line-height:1.5">6 categorías del pipeline de procesamiento</div>
+            </div>
+            <span id="realtime-spinner" class="badge rounded-pill d-inline-flex align-items-center gap-1.5 px-3 py-2 fw-semibold"
+                  style="font-size:11px;background:rgba(14,165,233,.08);color:#075985;border:1px solid rgba(14,165,233,.15);opacity:.92">
+              <svg class="htmx-spin" width="12" height="12" style="display:inline;vertical-align:middle"><use href="#i-refresh-cw"/></svg>
+              Actualiza cada 15s
+            </span>
+          </div>
+          <div style="max-width:420px;margin:0 auto">
+            <canvas id="chart-status-donut" height="280" aria-label="Gráfico dona distribución estados" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card rounded-4 border-0 shadow-sm h-100">
+        <div class="card-body p-4 p-lg-5">
+          <div class="d-flex flex-wrap align-items-start justify-content-between mb-4 gap-3">
+            <div>
+              <h2 class="fw-bold mb-1 text-navy" style="font-size:1.05rem;letter-spacing:-.005em">Votos · 4 Ámbitos</h2>
+              <div class="small text-muted" style="line-height:1.5">Total votos organizaciones políticas procesadas</div>
+            </div>
+          </div>
+          <canvas id="chart-ambitos-bar" height="280" aria-label="Gráfico barras votos por ambito" role="img"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# CHARTS ROW 2: Timeline + Confidence #}
+  <div class="row row-cols-1 row-cols-lg-2 g-3 g-lg-4">
+    <div class="col">
+      <div class="card rounded-4 border-0 shadow-sm h-100">
+        <div class="card-body p-4 p-lg-5">
+          <div class="d-flex flex-wrap align-items-start justify-content-between mb-4 gap-3">
+            <div>
+              <h2 class="fw-bold mb-1 text-navy" style="font-size:1.05rem;letter-spacing:-.005em">Actividad · Últimas 5h</h2>
+              <div class="small text-muted" style="line-height:1.5">Procesamientos exitosos vs errores por hora</div>
+            </div>
+          </div>
+          <canvas id="chart-timeline-line" height="220" aria-label="Gráfico linea timeline actividad" role="img"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card rounded-4 border-0 shadow-sm h-100">
+        <div class="card-body p-4 p-lg-5">
+          <div class="d-flex flex-wrap align-items-start justify-content-between mb-4 gap-3">
+            <div>
+              <h2 class="fw-bold mb-1 text-navy" style="font-size:1.05rem;letter-spacing:-.005em">Bandas de Confianza</h2>
+              <div class="small text-muted" style="line-height:1.5">Alta ≥90% · Media 70–89% · Baja &lt;70%</div>
+            </div>
+          </div>
+          <canvas id="chart-confidence-bar" height="220" aria-label="Gráfico barras horizontales confianza" role="img"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

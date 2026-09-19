@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+{% load confidence_tags %}
+
+{% block title %}Detalle Acta #{{ acta.id }} · Mesa {{ acta.table_number|default:acta.legacy_mesa_num|default:"—" }}{% endblock %}
+
+{% block body %}
+<div class="page-head mb-3">
+  <div>
+    <nav aria-label="breadcrumb" class="mb-1">
+      <ol class="breadcrumb breadcrumb-sm mb-0">
+        <li class="breadcrumb-item"><a class="text-decoration-none" href="{% url 'dashboard' %}">Inicio</a></li>
+        <li class="breadcrumb-item"><a class="text-decoration-none" href="{% url 'actas_procesadas' %}">Actas Procesadas</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Detalle #{{ acta.id }}</li>
+      </ol>
+    </nav>
+    <h1 class="page-title mb-1 d-flex align-items-center gap-2 flex-wrap">
+      Acta #{{ acta.id }}
+      {% if acta.status == "procesado_ok" %}<span class="badge text-bg-success rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5"><svg class="i" width="13" height="13"><use href="#i-check-circle"/></svg> Procesado</span>
+      {% elif acta.status == "revisado_ok" %}<span class="badge rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5 text-bg-primary"><svg class="i" width="13" height="13"><use href="#i-user"/></svg> Revisado</span>
+      {% elif acta.status == "observado" %}<span class="badge text-bg-warning rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5" style="color:#78350f!important"><svg class="i" width="13" height="13"><use href="#i-alert-triangle"/></svg> Observado</span>
+      {% elif acta.status == "error" %}<span class="badge text-bg-danger rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5"><svg class="i" width="13" height="13"><use href="#i-x-circle"/></svg> Error</span>
+      {% elif acta.status == "procesando" %}<span class="badge text-bg-info rounded-pill fs-xs px-3 py-1.5 d-inline-flex align-items-center gap-1.5"><svg class="i" width="13" height="13"><use href="#i-refresh-cw"/></svg> Procesando</span>
+      {% else %}<span class="badge rounded-pill bg-secondary-subtle text-secondary fs-xs px-3 py-1.5">{{ acta.status }}</span>{% endif %}
+    </h1>
+  </div>
+  <div class="page-head-actions d-flex flex-wrap gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'actas_procesadas' %}">
+      <svg class="i" width="15" height="15"><use href="#i-chevron-left"/></svg> Volver
+    </a>
+    <button type="button" class="btn btn-outline-primary btn-sm"
+            data-acta-view="{{ acta.id }}"
+            data-img-url="{% url 'serve_acta_image' acta_pk=acta.id %}"
+            data-meta="Mesa {{ acta.table_number|default:acta.legacy_mesa_num }} · {{ acta.acta_type|upper }}"
+            data-review-url="{% url 'review_split' acta_pk=acta.id %}"
+            aria-label="Ver fotografía del acta">
+      <svg class="i" width="15" height="15"><use href="#i-image"/></svg> Ver Acta
+    </button>
+    {% if conf_level == 'low' %}
+    <a class="btn btn-warning btn-sm text-dark fw-semibold" href="{% url 'review_split' acta_pk=acta.pk %}">
+      <svg class="i" width="15" height="15"><use href="#i-edit-3"/></svg> Revisar Acta
+    </a>
+    {% elif review_exists %}
+    <a class="btn btn-outline-warning btn-sm" href="{% url 'review_split' acta_pk=acta.pk %}">
+      <svg class="i" width="15" height="15"><use href="#i-eye"/></svg> Abrir Revisión
+    </a>
+    {% endif %}
+    {% if is_super %}
+    <form method="post" action="{% url 'procesar_pendientes' %}" class="htmx-spin d-inline" style="display:inline">
+      {% csrf_token %}
+      <button class="btn btn-outline-secondary btn-sm" type="submit">
+        <svg class="i" width="15" height="15"><use href="#i-refresh-cw"/></svg> Reprocesar
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if ambito_has_entries %}
+<div class="card rounded-4 overflow-hidden mb-4 border-0 shadow-sm" style="background:linear-gradient(135deg,#0F3A7D 0%,#1a4d9e 60%,#2860c9 100%);color:#fff">
+  <div class="card-body p-4 p-lg-5 d-flex align-items-center gap-4 flex-wrap">
+    <div class="flex-shrink-0" aria-label="Nivel de confianza consolidado">
+      <div class="position-relative" style="width:150px;height:150px">
+        <svg class="confidence-ring" viewBox="0 0 160 160" width="150" height="150">
+          <circle class="track" cx="80" cy="80" r="72" style="stroke:rgba(255,255,255,.14);fill:none;stroke-width:10"></circle>
+          <circle class="ring-fill"
+                  cx="80" cy="80" r="72"
+                  style="stroke:{% if conf_level == 'high' %}#22c55e{% elif conf_level == 'medium' %}#D4AF37{% else %}#ef4444{% endif %};stroke-width:10;fill:none;stroke-linecap:round;transform:rotate(-90deg);transform-origin:center;stroke-dasharray:452.389;stroke-dashoffset:{% if conf_pct is None %}452.389{% else %}calc(452.389 * (1 - {{ conf_pct|stringformat:'.3f' }} / 100)){% endif %};transition:stroke-dashoffset 1s ease">
+          </circle>
+        </svg>
+        <div class="position-absolute inset-0 d-flex flex-column align-items-center justify-content-center">
+          <div class="fw-extrabold" style="font-size:34px;line-height:1;color:{% if conf_level == 'high' %}#86efac{% elif conf_level == 'medium' %}#fde047{% else %}#fca5a5{% endif %}">
+            {% if conf_pct is None %}N/D{% else %}{{ conf_pct }}%{% endif %}
+          </div>
+          <div class="text-uppercase fw-bold" style="font-size:10.5px;letter-spacing:1.5px;color:rgba(255,255,255,.74);margin-top:4px">
+            {% if conf_level == 'high' %}ALTA{% elif conf_level == 'medium' %}MEDIA{% else %}BAJA{% endif %}<br>CONFIANZA
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flex-grow-1" style="min-width:0;min-width:280px">
+      <div class="text-uppercase fw-semibold mb-2 d-inline-flex align-items-center gap-2" style="font-size:12.5px;letter-spacing:.6px;color:rgba(255,255,255,.78)">
+        <svg class="i" width="14" height="14"><use href="#i-vote"/></svg>
+        Tipo: <b>{{ acta.acta_type|upper }}</b> · Mesa <b>{{ acta.table_number|default:acta.legacy_mesa_num|default:"—" }}</b>
+      </div>
+      <h2 class="fw-extrabold mb-2" style="font-size:clamp(1.5rem,2.2vw,2.2rem);letter-spacing:-.015em;color:#fff;line-height:1.2">
+        {% firstof acta.legacy_distrito acta.get_location_label "Acta Electoral" %}
+      </h2>
+      <p class="mb-3" style="color:rgba(255,255,255,.82);font-size:14.5px;line-height:1.65;margin:0 0 14px">
+        {% if acta.legacy_nombre_local %}
+        <svg class="i me-1" style="width:14px;height:14px;vertical-align:-2px;color:rgba(255,255,255,.72)"><use href="#i-map-pin"/></svg>
+        {{ acta.legacy_nombre_local }}
+        {% if acta.legacy_direccion %} · {{ acta.legacy_direccion }}{% endif %}
+        {% if acta.legacy_provincia or acta.legacy_departamento %}<br>{% endif %}
+        {% if acta.legacy_provincia %}Provincia: <b>{{ acta.legacy_provincia }}</b>{% endif %}
+        {% if acta.legacy_departamento %} · Departamento: <b>{{ acta.legacy_departamento }}</b>{% endif %}
+        {% else %}
+        Registro de acta {{ acta.acta_type }} procesado mediante IA multimodal.
+        {% endif %}
+      </p>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="badge rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" style="background:rgba(14,165,233,.18);border:1px solid rgba(14,165,233,.32);color:#bae6fd">
+          <svg class="i" width="13" height="13"><use href="#i-fingerprint"/></svg> ID Único: <b>{{ acta.unique_id|truncatechars:32 }}</b>
+        </span>
+        {% if acta.acta_escrutinio_legacy_id %}
+        <span class="badge rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#e2e8f0">
+          Legacy #<b>{{ acta.acta_escrutinio_legacy_id }}</b>
+        </span>
+        {% endif %}
+        {% if acta.layout_flags and acta.layout_flags.single_column_iquitos %}
+        <span class="badge rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" style="background:rgba(245,158,11,.2);border:1px solid rgba(245,158,11,.35);color:#fde68a">
+          <svg class="i" width="13" height="13"><use href="#i-alert-triangle"/></svg> IQUITOS · 1 columna (solo Provincial)
+        </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<section class="card rounded-4 border-0 shadow-sm mb-4">
+  <div class="card-body p-4 p-lg-5">
+    <div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+      <div>
+        <h2 class="h5 mb-1 fw-bold text-navy">Validación Aritmética por Ámbito</h2>
+        <div class="small text-muted">Suma Organizaciones + Blancos + Nulos + Impugnados vs Total Emitidos</div>
+      </div>
+    </div>
+    {% if not ambito_has_entries %}
+    <div class="alert alert-info d-flex gap-3 align-items-start mb-0">
+      <svg class="i flex-shrink-0 mt-1" width="18" height="18"><use href="#i-info"/></svg>
+      <div>Esta acta aún no tiene resultados extraídos de votos por ámbito. Presiona <b>Procesar Lote</b> o <b>Reprocesar</b> para ejecutar la IA.</div>
+    </div>
+    {% else %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3 g-lg-4">
+      {% for amb in ambitos_order %}
+      {% for a, d in diffs_por_ambito.items %}
+      {% if a == amb %}
+      <div class="col">
+        <div class="card h-100 rounded-3 border-0"
+             style="{% if d and not d.ok and d.total > 0 %}border-left:4px solid #ef4444!important;{% elif d and d.ok %}border-left:4px solid #22c55e!important;{% else %}border-left:4px solid #e2e8f0!important;{% endif %}background:#fafbff;box-shadow:0 1px 2px rgba(15,58,125,.05);{% if not d %}opacity:.6{% endif %}">
+          <div class="card-body p-4">
+            <div class="d-flex align-items-center gap-2 mb-3 text-muted small fw-semibold text-uppercase" style="letter-spacing:.3px">
+              <svg class="i" width="14" height="14"><use href="#i-building-2"/></svg>
+              {{ ambito_labels|dict_get:amb }}
+            </div>
+            {% if d %}
+            <div class="fw-extrabold mb-2" style="font-size:32px;line-height:1;color:#0F3A7D">
+              {% if d.ok %}<span class="text-success me-1">✓</span>
+              {% elif d.total > 0 %}<span class="text-danger me-1">⚠</span>{% endif %}
+              {{ d.total }}
+            </div>
+            <div class="small mb-3 lh-lg" style="color:#64748b">
+              <div>Orgs: <b class="text-navy">{{ d.orgs }}</b> · Blancos: <b class="text-navy">{{ d.blanco }}</b></div>
+              <div>Nulos: <b class="text-navy">{{ d.nulo }}</b> · Impugnados: <b class="text-navy">{{ d.impugnado }}</b></div>
+            </div>
+            <div class="small pt-3" style="border-top:1px dashed #e2e8f0">
+              <span class="text-muted">Suma:</span> <b class="text-navy">{{ d.suma_computed }}</b> ·
+              <span class="text-muted">Diff:</span>
+              {% if d.ok %}<span class="badge text-bg-success rounded-pill px-2 py-1 ms-1 fw-bold" style="font-size:11px">0 · IGUAL</span>
+              {% elif d.total == 0 %}<span class="badge rounded-pill bg-secondary-subtle text-secondary px-2 py-1 ms-1" style="font-size:11px">N/D</span>
+              {% else %}
+              <span class="badge text-bg-danger rounded-pill px-2 py-1 ms-1 fw-bold" style="font-size:11px">
+                {% if d.diff > 0 %}+{% endif %}{{ d.diff }} · DESCUADRE
+              </span>
+              {% endif %}
+            </div>
+            {% else %}
+            <div class="fw-extrabold mb-2" style="font-size:32px;line-height:1;color:#cbd5e1">—</div>
+            <div class="small text-muted">Sin datos para este ámbito</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+{% if ambito_has_entries %}
+<section class="card rounded-4 border-0 shadow-sm mb-4">
+  <div class="card-body p-4 p-lg-5">
+    <div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+      <div>
+        <h2 class="h5 mb-1 fw-bold text-navy">Detalle de Votos · 4 Ámbitos</h2>
+        <div class="small text-muted">Resultados extraídos por la IA · badges de confianza por fila · correcciones humanas marcadas</div>
+      </div>
+    </div>
+
+    <ul class="nav nav-tabs-pro mb-4 pb-0" role="tablist">
+      {% for amb in ambitos_order %}
+      {% if votes_by_ambito|dict_len:amb > 0 or forloop.first %}
+      <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold px-0 me-4 {% if forloop.first %}active{% endif %}"
+                type="button"
+                role="tab"
+                aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+                data-bs-toggle="tab"
+                data-bs-target="#tab-amb-{{ amb }}"
+                aria-controls="tab-amb-{{ amb }}"
+                id="tab-amb-btn-{{ amb }}"
+                style="{% if forloop.first %}border-bottom-color:#0F3A7D;color:#0F3A7D{% endif %}">
+          <svg class="i me-1" width="14" height="14"><use href="#i-building-2"/></svg>
+          {{ ambito_labels|dict_get:amb }}
+          {% if votes_by_ambito.items %}
+          <span class="badge text-bg-info rounded-pill ms-2" style="font-size:10.5px;padding:2px 8px">{{ votes_by_ambito|dict_len:amb }}</span>
+          {% endif %}
+        </button>
+      </li>
+      {% endif %}
+      {% endfor %}
+    </ul>
+
+    <div class="tab-content">
+      {% for amb in ambitos_order %}
+      <div id="tab-amb-{{ amb }}"
+           class="tab-pane fade {% if forloop.first %}show active{% endif %}"
+           role="tabpanel"
+           aria-labelledby="tab-amb-btn-{{ amb }}">
+        {% for a_key, rows in votes_by_ambito.items %}{% if a_key == amb %}
+        {% if not rows %}
+        <p class="alert alert-info d-flex gap-2 align-items-start mb-0">
+          <svg class="i mt-1" width="16" height="16"><use href="#i-info"/></svg>
+          <span>No hay filas en este ámbito.</span>
+        </p>
+        {% else %}
+        <div class="table-responsive rounded-3 overflow-hidden border">
+          <table class="table table-hover align-middle mb-0" style="font-size:14px">
+            <thead style="background:#f8fafc">
+              <tr>
+                <th style="width:50px" class="ps-3">#</th>
+                <th>Categoría / Organización</th>
+                <th style="width:140px" class="text-end pe-3">Votos</th>
+                <th style="width:240px">Confianza Campo</th>
+                <th style="width:120px">Origen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for e in rows %}
+              <tr {% if e.is_corrected %}style="background:rgba(212,175,55,.05)"{% endif %}>
+                <td class="ps-3 mono small text-muted">{{ forloop.counter }}</td>
+                <td>
+                  {% if e.entry_category == "organizacion" %}
+                    <span class="fw-semibold text-navy">
+                      {% firstof e.organization.short_name e.candidate_name e.organization.name e.candidate_name "Organización" %}
+                    </span>
+                  {% elif e.entry_category == "blanco" %}
+                    <span class="badge rounded-pill text-bg-secondary px-3 py-1.5 d-inline-flex align-items-center gap-1.5" style="font-size:12px">
+                      <svg class="i" width="11" height="11"><use href="#i-blank"/></svg>
+                      Voto en Blanco
+                    </span>
+                  {% elif e.entry_category == "nulo" %}
+                    <span class="badge text-bg-warning rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 fw-semibold" style="font-size:12px;color:#78350f">Voto Nulo</span>
+                  {% elif e.entry_category == "impugnado" %}
+                    <span class="badge text-bg-danger rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 fw-semibold" style="font-size:12px">Voto Impugnado</span>
+                  {% elif e.entry_category == "total" %}
+                    <span class="badge rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 fw-bold" style="font-size:12px;background:rgba(15,58,125,.08);color:#0F3A7D;border:1px solid rgba(15,58,125,.18)">
+                      <svg class="i" width="12" height="12"><use href="#i-sigma"/></svg>
+                      TOTAL EMITIDOS
+                    </span>
+                  {% else %}
+                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-1.5" style="font-size:12px">{{ e.entry_category }}</span>
+                  {% endif %}
+                  {% if e.is_corrected %}
+                  <span class="badge rounded-pill text-bg-primary px-2 py-1 ms-2 d-inline-flex align-items-center gap-1 fw-bold" style="font-size:10.5px">
+                    <svg class="i" width="10" height="10"><use href="#i-user"/></svg>
+                    CORREGIDA
+                  </span>
+                  {% endif %}
+                </td>
+                <td class="text-end pe-3">
+                  <b class="mono text-navy" style="font-size:15px;font-variant-numeric:tabular-nums">{{ e.votes }}</b>
+                </td>
+                <td>
+                  {% confidence_bar_html e.field_confidence True 140 %}
+                </td>
+                <td>
+                  <span class="small mono text-muted">{{ e.data_origin|default:"ia" }}</span>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-5">Sin datos en este ámbito</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+        {% endif %}{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <section class="card rounded-4 border-0 shadow-sm h-100">
+      <div class="card-body p-4 p-lg-5">
+        <div class="mb-4">
+          <h2 class="h5 mb-1 fw-bold text-navy">Metadatos y Transcripción</h2>
+          <div class="small text-muted">Información técnica del procesamiento IA multimodal</div>
+        </div>
+        <dl class="row mb-0" style="font-size:14px">
+          <dt class="col-sm-4 text-muted fw-medium">Legacy ID (actas_escrutinio)</dt>
+          <dd class="col-sm-8 mono fw-semibold mb-3">{% firstof acta.acta_escrutinio_legacy_id "—" %}</dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">Número de mesa</dt>
+          <dd class="col-sm-8 mono fw-semibold mb-3">{% firstof acta.table_number acta.legacy_mesa_num "—" %}</dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">Tipo de acta</dt>
+          <dd class="col-sm-8 mb-3"><span class="badge text-bg-info rounded-pill px-3 py-1.5 fw-semibold">{{ acta.acta_type|upper }}</span></dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">Proceso electoral</dt>
+          <dd class="col-sm-8 mb-3">{% firstof acta.election_process.name acta.election_process "—" %}</dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">Distrito / Ubicación</dt>
+          <dd class="col-sm-8 mb-3">{% firstof acta.legacy_distrito acta.get_location_label "—" %}</dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">Creado · Actualizado</dt>
+          <dd class="col-sm-8 mono small mb-3">{{ acta.created_at|date:"d/m/Y H:i" }} · {{ acta.updated_at|date:"d/m/Y H:i" }}</dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">Layout detectado</dt>
+          <dd class="col-sm-8 mb-3">
+            {% if acta.layout_flags and acta.layout_flags.single_column_iquitos %}
+              <span class="badge text-bg-warning rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" style="color:#78350f">
+                <svg class="i" width="12" height="12"><use href="#i-alert-triangle"/></svg> IQUITOS 1 columna
+              </span>
+            {% else %}
+              <span class="badge rounded-pill bg-secondary-subtle text-secondary px-3 py-1.5 fw-semibold">2 columnas estándar</span>
+            {% endif %}
+            {% if acta.layout_flags and acta.layout_flags.items and acta.layout_flags|length > 1 %}
+              <span class="small text-muted ms-2">({{ acta.layout_flags|length }} flags)</span>
+            {% endif %}
+          </dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">Notas</dt>
+          <dd class="col-sm-8 mb-3">{% if acta.notes %}{{ acta.notes }}{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+          {% if latest_trans %}
+          <div class="col-12 my-2">
+            <hr style="border-color:#e2e8f0;margin:0">
+          </div>
+          <dt class="col-sm-4 text-muted fw-medium pt-3">Proveedor / Modelo IA</dt>
+          <dd class="col-sm-8 mb-3 pt-3">
+            <span class="badge text-bg-success rounded-pill px-3 py-1.5 fw-bold me-2">{{ latest_trans.provider|upper }}</span>
+            <span class="mono text-navy fw-semibold">{{ latest_trans.model }}</span>
+          </dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">Conf. global transcripción</dt>
+          <dd class="col-sm-8 mb-3">{% confidence_bar_html latest_trans.global_confidence True 180 %}</dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">Validación</dt>
+          <dd class="col-sm-8 mb-3">
+            <span class="badge rounded-pill bg-secondary-subtle text-secondary px-3 py-1.5 fw-semibold">
+              {{ latest_trans.get_validation_status_display|default:latest_trans.validation_status }}
+            </span>
+          </dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">Prompt versión</dt>
+          <dd class="col-sm-8 mono fw-semibold mb-3">v{% firstof latest_trans.prompt_version "1.0" %}</dd>
+
+          <dt class="col-sm-4 text-muted fw-medium">row_hash (integridad)</dt>
+          <dd class="col-sm-8 mono small mb-3" style="word-break:break-all">
+            {% with first_row=acta.vote_entries.all|first %}
+            {% if first_row and first_row.row_hash %}{{ first_row.row_hash }}{% else %}—{% endif %}
+            {% endwith %}
+          </dd>
+          {% endif %}
+        </dl>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-5">
+    <section class="card rounded-4 border-0 shadow-sm h-100">
+      <div class="card-body p-4 p-lg-5">
+        <div class="mb-4">
+          <h2 class="h5 mb-1 fw-bold text-navy">Línea de Tiempo</h2>
+          <div class="small text-muted">Eventos del acta desde su creación</div>
+        </div>
+        {% if timeline_events %}
+        <ol class="list-unstyled mb-0 ps-0" style="position:relative">
+          {% for ev in timeline_events %}
+          <li class="d-flex gap-3 pb-4 position-relative" style="padding-left:4px">
+            <div class="flex-shrink-0 mt-1" style="width:14px;height:14px;border-radius:50%;
+              {% if ev.dot == 'ok' %}background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)
+              {% elif ev.dot == 'warn' %}background:#D4AF37;box-shadow:0 0 0 4px rgba(212,175,55,.14)
+              {% elif ev.dot == 'danger' %}background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.12)
+              {% else %}background:#0ea5e9;box-shadow:0 0 0 4px rgba(14,165,233,.12){% endif %}"></div>
+            <div class="flex-grow-1" style="min-width:0">
+              <div class="d-flex justify-content-between align-items-baseline gap-2 flex-wrap mb-1">
+                <b class="text-navy small">{{ ev.label }}</b>
+                <span class="mono text-xs text-muted">{{ ev.when|date:"d/m/Y H:i" }}</span>
+              </div>
+              {% if ev.detail %}
+              <p class="small mb-0 text-muted" style="line-height:1.55">{{ ev.detail }}</p>
+              {% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
+        {% else %}
+        <p class="text-muted mb-0 small">Aún sin eventos registrados.</p>
+        {% endif %}
+
+        {% if alerts %}
+        <hr class="my-4" style="border-color:#e2e8f0">
+        <h3 class="small fw-bold mb-3 text-navy">Alertas de Procesamiento</h3>
+        <div class="d-flex flex-column gap-2">
+          {% for al in alerts %}
+          <div class="alert d-flex gap-3 align-items-start p-3 mb-0 {% if al.severity == 'critical' or al.severity == 'error' %}alert-danger{% elif al.severity == 'warning' %}alert-warning{% else %}alert-info{% endif %}" style="font-size:13px">
+            <svg class="i flex-shrink-0 mt-0.5" width="16" height="16"><use href="#i-alert-triangle"/></svg>
+            <div style="min-width:0"><b>[{{ al.alert_type }}]</b> {{ al.message }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

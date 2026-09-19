@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Login · Elecciones 2026{% endblock %}
+
+{% block head_extra %}
+<style>
+  .sidebar-noop #sidebarOffcanvas,
+  .sidebar-noop .topbar-wrap,
+  .sidebar-noop .main-wrapper .topbar-wrap,
+  .sidebar-noop .breadcrumb { display: none !important; }
+  .sidebar-noop .main-wrapper { margin-left: 0 !important; width: 100% !important; padding-top: 0 !important; }
+  .sidebar-noop body { background: #fff !important; }
+  .login-hero-bg {
+    background:
+      radial-gradient(1200px 600px at 20% 10%, rgba(212,175,55,0.18), transparent 60%),
+      radial-gradient(800px 500px at 90% 90%, rgba(255,255,255,0.06), transparent 55%),
+      linear-gradient(155deg, #0F3A7D 0%, #0B2E63 45%, #08244A 100%);
+  }
+  .toggle-password {
+    background: none; border: none; cursor: pointer;
+    color: #0F3A7D; font-size: .72rem; font-weight: 700;
+    padding: .25rem .5rem; border-radius: .375rem;
+    letter-spacing: .04em;
+  }
+  .toggle-password:hover { background: rgba(15,58,125,0.08); }
+</style>
+{% endblock %}
+
+{% block body_class %}sidebar-noop{% endblock %}
+{% block topbar %}{% endblock %}
+
+{% block body %}
+<div class="login-shell min-vh-100 w-100" role="none">
+  <div class="row g-0 m-0 min-vh-100 login-grid">
+    <div class="col-lg-6 d-none d-lg-flex flex-column justify-content-between p-5 p-xl-6 login-hero login-hero-bg text-white" aria-label="Presentaci&oacute;n del sistema">
+      <div class="login-hero-inner flex-grow-1 d-flex flex-column justify-content-between py-5">
+        <div class="login-hero-logo d-flex align-items-center gap-3 mb-5">
+          <div class="login-hero-logo-mark rounded-2 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:rgba(212,175,55,0.18);border:1px solid rgba(212,175,55,0.35);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M5 7c0-1.1.9-2 2-2h10a2 2 0 0 1 2 2v12H5V7Z"/><path d="M22 19H2"/></svg>
+          </div>
+          <div class="login-hero-logo-text d-flex flex-column lh-1">
+            <span class="fs-5 fw-bold text-white">Elecciones 2026</span>
+            <span class="small mt-1 text-white-50">Procesamiento IA · Whadox</span>
+          </div>
+        </div>
+
+        <div class="mb-5">
+          <h1 class="hero-title display-5 fw-bold mb-4 lh-1.2" style="line-height:1.15;">
+            Auditor&iacute;a Inteligente<br/>
+            de <span class="hero-accent text-warning">Actas Electorales</span>
+          </h1>
+          <p class="hero-desc fs-5 text-white-50 mb-5" style="line-height:1.65;max-width:460px;">
+            Transcripci&oacute;n literal y validaci&oacute;n aritm&eacute;tica automatizada con
+            proveedores multi-IA (Gemini · DeepSeek). Diseñado para Loreto — Perú.
+          </p>
+
+          <ul class="hero-features list-unstyled mb-0 d-flex flex-column gap-3" style="max-width:500px;">
+            <li class="d-flex align-items-start gap-3 p-3 rounded-3 bg-white bg-opacity-5 border border-white border-opacity-10">
+              <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 mt-0.5" style="width:26px;height:26px;background:rgba(212,175,55,0.18);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span class="small text-white-75 lh-1.6" style="color:rgba(255,255,255,0.8);">IA configurable: modelos, temperatura, timeouts y m&uacute;ltiples proveedores</span>
+            </li>
+            <li class="d-flex align-items-start gap-3 p-3 rounded-3 bg-white bg-opacity-5 border border-white border-opacity-10">
+              <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 mt-0.5" style="width:26px;height:26px;background:rgba(212,175,55,0.18);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span class="small text-white-75 lh-1.6" style="color:rgba(255,255,255,0.8);">Roles de acceso: Administrador y Super-Admin con auditor&iacute;a completa</span>
+            </li>
+            <li class="d-flex align-items-start gap-3 p-3 rounded-3 bg-white bg-opacity-5 border border-white border-opacity-10">
+              <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 mt-0.5" style="width:26px;height:26px;background:rgba(212,175,55,0.18);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span class="small text-white-75 lh-1.6" style="color:rgba(255,255,255,0.8);">Regla Iquitos · detecci&oacute;n autom&aacute;tica layouts 1-columna y 2-columnas</span>
+            </li>
+            <li class="d-flex align-items-start gap-3 p-3 rounded-3 bg-white bg-opacity-5 border border-white border-opacity-10">
+              <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 mt-0.5" style="width:26px;height:26px;background:rgba(212,175,55,0.18);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span class="small text-white-75 lh-1.6" style="color:rgba(255,255,255,0.8);">Integraci&oacute;n no destructiva: tablas legacy (usuarios/mesa/actas_escrutinio) en solo lectura</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="hero-version-pill d-inline-flex align-items-center gap-2 px-4 py-2 rounded-pill bg-white bg-opacity-5 border border-white border-opacity-10 align-self-start">
+          <span class="dot rounded-circle bg-success" style="width:8px;height:8px;box-shadow:0 0 0 4px rgba(25,135,84,0.15);"></span>
+          <span class="small fw-medium text-white-75" style="color:rgba(255,255,255,0.8);">Build {{ APP_BUILD|default:"20260918-006" }} · Servicios Activos</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6 d-flex align-items-center justify-content-center p-4 p-sm-5 p-md-6 bg-body-tertiary login-form-wrap" aria-label="Formulario de autenticaci&oacute;n">
+      <div class="card login-card shadow-lg border-0 rounded-4 w-100 p-4 p-sm-5" style="max-width:470px;">
+        <div class="d-lg-none mb-4 d-flex align-items-center gap-3 pb-4 border-bottom">
+          <div class="rounded-2 d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:rgba(15,58,125,0.08);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F3A7D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-vote"/></svg>
+          </div>
+          <div class="lh-1">
+            <div class="fw-bold text-primary">Elecciones 2026</div>
+            <div class="small text-muted mt-1">Procesamiento IA · Whadox</div>
+          </div>
+        </div>
+
+        <h2 class="h3 fw-bold mb-2 text-primary">Iniciar Sesi&oacute;n</h2>
+        <p class="login-subtitle text-muted mb-4" style="line-height:1.6;">Autent&iacute;cate para gestionar el procesamiento de actas electorales.</p>
+
+        {% if form.errors %}
+        <div class="alert alert-danger d-flex align-items-start gap-3 rounded-3 border-0 p-3 mb-4" role="alert">
+          <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 bg-danger bg-opacity-10" style="width:34px;height:34px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" class="text-danger"><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+          </div>
+          <div class="flex-grow-1">
+            <h3 class="alert-heading h6 mb-1 fw-bold text-danger">Credenciales inv&aacute;lidas</h3>
+            <div class="small lh-1.6">Usuario o contrase&ntilde;a incorrectos, o tu cuenta <b>no tiene rol autorizado</b>. Solo <b>ADMINISTRADOR</b> y <b>SUPER_ADMIN</b> pueden acceder.</div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if next %}
+          {% if user.is_authenticated %}
+          <div class="alert alert-warning d-flex align-items-start gap-3 rounded-3 border-0 p-3 mb-4" role="alert">
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 bg-warning bg-opacity-15" style="width:34px;height:34px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#97760f" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+            </div>
+            <div class="flex-grow-1">
+              <h3 class="alert-heading h6 mb-1 fw-bold" style="color:#6b5309;">Permisos insuficientes</h3>
+              <div class="small lh-1.6" style="color:#6b5309;">Tu cuenta no tiene permisos suficientes para acceder a la p&aacute;gina solicitada.</div>
+            </div>
+          </div>
+          {% else %}
+          <div class="alert alert-info d-flex align-items-start gap-3 rounded-3 border-0 p-3 mb-4" role="alert">
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 bg-info bg-opacity-15" style="width:34px;height:34px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#055160" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            </div>
+            <div class="flex-grow-1">
+              <h3 class="alert-heading h6 mb-1 fw-bold text-info">Autenticaci&oacute;n requerida</h3>
+              <div class="small lh-1.6 text-info">Autent&iacute;cate para continuar al destino solicitado.</div>
+            </div>
+          </div>
+          {% endif %}
+        {% endif %}
+
+        <form method="post" action="{% url 'login' %}" novalidate>
+          {% csrf_token %}
+
+          <div class="mb-3 form-row">
+            <label for="id_username" class="form-label small fw-semibold mb-2 text-primary-emphasis">Usuario<span class="req text-danger ms-1">*</span></label>
+            <div class="input-wrap input-group input-group-lg">
+              <span class="input-group-text bg-white border-end-0 text-primary" style="border-top-left-radius:.9rem;border-bottom-left-radius:.9rem;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+              <input
+                type="text"
+                id="id_username"
+                name="username"
+                autocomplete="username"
+                required
+                placeholder="Ingresa tu usuario"
+                autofocus
+                class="form-control form-control-lg input-pro input-pro--with-icon border-start-0 ps-0"
+                style="border-top-right-radius:.9rem;border-bottom-right-radius:.9rem;"
+              />
+            </div>
+          </div>
+
+          <div class="mb-4 form-row">
+            <label for="id_password" class="form-label small fw-semibold mb-2 text-primary-emphasis">Contrase&ntilde;a<span class="req text-danger ms-1">*</span></label>
+            <div class="input-wrap input-group input-group-lg position-relative">
+              <span class="input-group-text bg-white border-end-0 text-primary" style="border-top-left-radius:.9rem;border-bottom-left-radius:.9rem;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </span>
+              <input
+                type="password"
+                id="id_password"
+                name="password"
+                autocomplete="current-password"
+                required
+                placeholder="••••••••"
+                class="form-control form-control-lg input-pro input-pro--with-icon border-start-0 border-end-0 ps-0 pe-5"
+              />
+              <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 z-1" data-target="#id_password" aria-label="Mostrar u ocultar contrase&ntilde;a">
+                <span class="show-txt">MOSTRAR</span>
+                <span class="hide-txt" style="display:none">OCULTAR</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-actions d-grid mb-3">
+            <button class="btn btn-primary btn-lg fw-semibold py-3 rounded-3 shadow-sm" type="submit">
+              <span class="d-inline-flex align-items-center justify-content-center gap-2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                Ingresar al Sistema
+              </span>
+            </button>
+          </div>
+
+          <input type="hidden" name="next" value="{{ next | default:'/' }}" />
+        </form>
+
+        <p class="small text-center text-muted mt-4 mb-0 pt-4 border-top border-dashed" style="line-height:1.7;">
+          Acceso exclusivo para personal autorizado · <b class="text-primary-emphasis">ADMINISTRADOR</b> / <b class="text-primary-emphasis">SUPER_ADMIN</b><br/>
+          <span class="text-muted">Cualquier intento no autorizado ser&aacute; registrado en el log de auditor&iacute;a.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.toggle-password').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var sel = btn.getAttribute('data-target');
+        var inp = sel ? document.querySelector(sel) : null;
+        if (!inp) return;
+        var txtShow = btn.querySelector('.show-txt');
+        var txtHide = btn.querySelector('.hide-txt');
+        if (inp.type === 'password') {
+          inp.type = 'text';
+          if (txtShow) txtShow.style.display = 'none';
+          if (txtHide) txtHide.style.display = '';
+        } else {
+          inp.type = 'password';
+          if (txtShow) txtShow.style.display = '';
+          if (txtHide) txtHide.style.display = 'none';
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

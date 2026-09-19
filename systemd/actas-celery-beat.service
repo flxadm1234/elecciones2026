@@ -1,0 +1,19 @@
+[Unit]
+Description=Actas Electoral - Celery Beat (Scheduler)
+After=network.target postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/actas
+EnvironmentFile=/opt/actas/.env
+ExecStart=/opt/actas/.venv/bin/celery \
+    --app=config.celery.app beat \
+    --loglevel=INFO \
+    --scheduler django_celery_beat.schedulers:DatabaseScheduler
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

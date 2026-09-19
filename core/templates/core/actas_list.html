@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% load confidence_tags %}
+
+{% block title %}{{ list_title }} · Elecciones 2026{% endblock %}
+
+{% block body %}
+<div class="mb-4">
+  <div class="d-flex flex-wrap flex-md-nowrap align-items-md-center justify-content-between gap-3 mb-3">
+    <div>
+      <h1 class="h2 fw-bold mb-1 text-primary-emphasis lh-1">
+        {% if list_mode == "processed" %}
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2 align-middle mb-1"><use href="#i-folder-check"/></svg>
+        {% else %}
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2 align-middle mb-1"><use href="#i-folder-clock"/></svg>
+        {% endif %}
+        {{ list_title }}
+        <span class="badge rounded-pill text-bg-info ms-2 align-middle" style="font-size:.75rem;padding:.3rem .65rem">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1 mb-0.5"><use href="#i-vote"/></svg>
+          {{ total_count }} registro{{ total_count|pluralize }}
+        </span>
+      </h1>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+      <a class="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-1.5 fw-semibold" href="{% url 'dashboard' %}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-dashboard"/></svg>
+        Dashboard
+      </a>
+      {% if list_mode == "pending" %}
+      <form method="post" action="{% url 'procesar_pendientes' %}" class="htmx-spin d-inline m-0">
+        {% csrf_token %}
+        <button class="btn btn-primary btn-sm rounded-pill fw-semibold d-inline-flex align-items-center gap-1.5 shadow-sm" type="submit" {% if total_count == 0 %}disabled{% endif %}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-zap"/></svg>
+          Procesar Lote
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="get" class="filter-card" role="search" aria-label="Filtrar listado">
+    <div class="row g-3 align-items-end">
+      <div class="col-12 col-sm-6 col-lg-3">
+        <label class="form-label mb-2" for="id_q">B&uacute;squeda</label>
+        <div class="input-group">
+          <span class="input-group-text bg-white border-end-0 text-muted">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-search"/></svg>
+          </span>
+          <input id="id_q" type="search" name="q"
+                 class="form-control border-start-0 ps-0"
+                 placeholder="Mesa, distrito, legacy ID, notas…"
+                 value="{{ filter_form.cleaned_data.q|default:'' }}">
+        </div>
+      </div>
+      <div class="col-6 col-sm-6 col-lg-2">
+        <label class="form-label mb-2" for="id_status">Estado</label>
+        <select id="id_status" name="status" class="form-select">
+          {% for val, lbl in filter_form.fields.status.choices %}
+          <option value="{{ val }}" {% if filter_form.cleaned_data.status == val %}selected{% endif %}>{{ lbl }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-sm-6 col-lg-2">
+        <label class="form-label mb-2" for="id_tipo_acta">Tipo Acta</label>
+        <select id="id_tipo_acta" name="tipo_acta" class="form-select">
+          {% for val, lbl in filter_form.fields.tipo_acta.choices %}
+          <option value="{{ val }}" {% if filter_form.cleaned_data.tipo_acta == val %}selected{% endif %}>{{ lbl }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-sm-6 col-lg-2">
+        <label class="form-label mb-2" for="id_ambito">&Aacute;mbito</label>
+        <select id="id_ambito" name="ambito" class="form-select">
+          {% for val, lbl in filter_form.fields.ambito.choices %}
+          <option value="{{ val }}" {% if filter_form.cleaned_data.ambito == val %}selected{% endif %}>{{ lbl }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if list_mode == "processed" %}
+      <div class="col-6 col-sm-6 col-lg-2">
+        <label class="form-label mb-2" for="id_confianza">Confianza</label>
+        <select id="id_confianza" name="confianza" class="form-select">
+          {% for val, lbl in filter_form.fields.confianza.choices %}
+          <option value="{{ val }}" {% if filter_form.cleaned_data.confianza == val %}selected{% endif %}>{{ lbl }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-sm-6 col-lg-2">
+      {% else %}
+      <div class="col-6 col-sm-6 col-lg-2">
+      {% endif %}
+        <label class="form-label mb-2" for="id_fecha_desde">Desde</label>
+        <input id="id_fecha_desde" type="date" name="fecha_desde" class="form-control" value="{{ filter_form.cleaned_data.fecha_desde|date:'Y-m-d'|default:'' }}">
+      </div>
+      {% if list_mode == "processed" %}
+      <div class="col-6 col-sm-6 col-lg-2 offset-lg-0">
+      {% else %}
+      <div class="col-6 col-sm-6 col-lg-2">
+      {% endif %}
+        <label class="form-label mb-2" for="id_fecha_hasta">Hasta</label>
+        <input id="id_fecha_hasta" type="date" name="fecha_hasta" class="form-control" value="{{ filter_form.cleaned_data.fecha_hasta|date:'Y-m-d'|default:'' }}">
+      </div>
+      <div class="col-12 col-lg-{% if list_mode == 'processed' %}2{% else %}4{% endif %}">
+        <div class="d-flex gap-2 align-items-stretch">
+          <button class="btn btn-primary rounded-pill flex-grow-1 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5" type="submit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-filter"/></svg>
+            Aplicar
+          </button>
+          <a class="btn btn-outline-secondary rounded-pill flex-grow-1 fw-semibold" href="{% if list_mode == 'processed' %}{% url 'actas_procesadas' %}{% else %}{% url 'actas_pendientes' %}{% endif %}">
+            Limpiar
+          </a>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% if page_obj.object_list %}
+
+<section class="mb-4" aria-label="Listado de actas">
+  <div class="acta-grid row g-3 g-lg-4 row-cols-1 row-cols-md-2 row-cols-xxl-3">
+    {% for a in page_obj.object_list %}
+    <div class="col">
+      <article class="acta-card card h-100 border-0 shadow-sm rounded-4 overflow-hidden position-relative bg-white" tabindex="0"
+               style="--card-accent:{% if a.status == 'procesado_ok' or a.status == 'revisado_ok' %}#059669{% elif a.status == 'error' %}#DC2626{% elif a.status == 'observado' %}#D4AF37{% else %}#0F3A7D{% endif %};border-left:4px solid var(--card-accent);cursor:pointer;"
+               onclick="window.location.href='{% url 'acta_detail' pk=a.pk %}'"
+               aria-label="Acta mesa {{ a.table_number|default:a.legacy_mesa_num|default:'#' }}">
+        <div class="card-body p-4 d-flex flex-column h-100 gap-3">
+          <div class="acta-card-head d-flex align-items-start justify-content-between gap-2">
+            <div class="min-w-0 flex-grow-1">
+              <div class="acta-meta-id small text-muted mb-1 mono">ID #{{ a.id }} · Legacy #{{ a.acta_escrutinio_legacy_id|default:'—' }}</div>
+              <div class="acta-mesa-num h5 fw-bold mb-0 lh-1 text-primary-emphasis">
+                Mesa {{ a.table_number|default:a.legacy_mesa_num|default:'—' }}
+              </div>
+            </div>
+            <div class="flex-shrink-0">
+              {% if a.status == "procesado_ok" %}<span class="badge text-bg-success rounded-pill d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5 fw-semibold"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check-circle"/></svg> OK</span>
+              {% elif a.status == "revisado_ok" %}<span class="badge text-bg-primary rounded-pill d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5 fw-semibold"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg> REV</span>
+              {% elif a.status == "observado" %}<span class="badge bg-warning text-primary rounded-pill d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5 fw-semibold"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-triangle"/></svg> OBS</span>
+              {% elif a.status == "error" %}<span class="badge text-bg-danger rounded-pill d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5 fw-semibold"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x-circle"/></svg> ERR</span>
+              {% elif a.status == "procesando" %}<span class="badge text-bg-info rounded-pill d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5 fw-semibold"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="spinner-border spinner-border-sm"><use href="#i-refresh-cw"/></svg> PROC</span>
+              {% else %}<span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis px-2.5 py-1.5 fw-semibold">PEND</span>{% endif %}
+            </div>
+          </div>
+
+          <div class="acta-meta-row d-flex align-items-center gap-2 flex-wrap small">
+            <span class="badge text-bg-info rounded-pill px-2.5 py-1 fw-semibold">{{ a.acta_type|upper }}</span>
+            {% if a.layout_flags and a.layout_flags.single_column_iquitos %}
+              <span class="badge bg-warning text-primary rounded-pill d-inline-flex align-items-center gap-1.5 px-2.5 py-1 fw-semibold"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-triangle"/></svg> IQUITOS 1-col</span>
+            {% endif %}
+            <span class="text-muted">·</span>
+            <span class="text-muted text-truncate" style="max-width:180px">{{ a.legacy_distrito|default:a.get_location_label|default:"Sin ubicación" }}</span>
+          </div>
+
+          {% if a.legacy_nombre_local %}
+          <div class="acta-meta-row d-flex align-items-center gap-2 small text-muted">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 text-muted"><use href="#i-map-pin"/></svg>
+            <span class="text-truncate">{{ a.legacy_nombre_local }}</span>
+          </div>
+          {% endif %}
+
+          {% if list_mode == "processed" %}
+          <div class="mt-auto">
+            {% confidence_bar_html a.confidence_score True 100 %}
+          </div>
+          {% endif %}
+
+          <div class="acta-meta-row d-flex align-items-center justify-content-between gap-2 mt-auto small text-muted pt-1">
+            <span class="d-inline-flex align-items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted"><use href="#i-clock"/></svg>
+              {{ a.updated_at|date:"d/m/Y H:i" }}
+            </span>
+            {% if list_mode == "processed" and a.confidence_score|conf_level == "low" %}
+            <span class="badge text-bg-danger rounded-pill d-inline-flex align-items-center gap-1.5 px-2 py-1" style="font-size:.65rem">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-edit-3"/></svg>
+              REV. HUMANA
+            </span>
+            {% endif %}
+          </div>
+
+          <div class="acta-card-cta d-flex gap-2 flex-wrap pt-2 border-top border-gray-100">
+            <a class="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-1.5 flex-grow-1 justify-content-center" href="{% url 'acta_detail' pk=a.pk %}" onclick="event.stopPropagation()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-eye"/></svg>
+              Detalle
+            </a>
+            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill d-inline-flex align-items-center gap-1.5 flex-grow-1 justify-content-center"
+                    data-acta-view="{{ a.id }}"
+                    data-img-url="{% url 'serve_acta_image' acta_pk=a.id %}"
+                    data-meta="Mesa {{ a.legacy_mesa_num|default:a.table_number }} · {{ a.acta_type|upper }}"
+                    data-review-url="{% url 'review_split' acta_pk=a.id %}"
+                    onclick="event.stopPropagation()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-image"/></svg>
+              Ver Acta
+            </button>
+            {% if list_mode == "processed" and a.confidence_score|conf_level == "low" %}
+            <a class="btn btn-warning btn-sm rounded-pill d-inline-flex align-items-center gap-1.5 flex-grow-1 justify-content-center fw-semibold" href="{% url 'review_split' acta_pk=a.pk %}" onclick="event.stopPropagation()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-edit-3"/></svg>
+              Revisar
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </article>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<nav class="paginator mb-4 d-flex flex-wrap align-items-center justify-content-center gap-2" aria-label="Paginaci&oacute;n de resultados">
+  <div class="info w-100 text-center small text-muted mb-2 order-md-0 order-1">
+    P&aacute;gina <b>{{ page_obj.number }}</b> de <b>{{ paginator.num_pages }}</b> ·
+    {{ total_count }} resultado{{ total_count|pluralize }} ·
+    Mostrando {{ page_obj.start_index }} – {{ page_obj.end_index }}
+  </div>
+
+  {% if page_obj.has_previous %}
+    <a class="btn btn-outline-secondary btn-sm rounded-pill" href="?{% if qs_params %}{{ qs_params }}&amp;{% endif %}page=1" aria-label="Primera p&aacute;gina">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><use href="#i-chevrons-left"/></svg> Primero
+    </a>
+    <a class="btn btn-outline-secondary btn-sm rounded-pill" href="?{% if qs_params %}{{ qs_params }}&amp;{% endif %}page={{ page_obj.previous_page_number }}" aria-label="P&aacute;gina anterior">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron-left"/></svg>
+    </a>
+  {% endif %}
+
+  <ul class="pagination-pro mb-0" role="list">
+  {% with ''|center:paginator.num_pages as range %}
+  {% for _ in range %}
+    {% with page_num=forloop.counter %}
+      {% if page_num == page_obj.number %}
+        <li><span class="page-link-pro active">{{ page_num }}</span></li>
+      {% else %}
+        {% if page_num <= 2 or page_num >= paginator.num_pages|add:"-1" or page_num >= page_obj.number|add:"-2" and page_num <= page_obj.number|add:"2" %}
+          <li><a class="page-link-pro" href="?{% if qs_params %}{{ qs_params }}&amp;{% endif %}page={{ page_num }}">{{ page_num }}</a></li>
+        {% elif forloop.counter == 3 or forloop.counter == paginator.num_pages|add:"-2" %}
+          <li><span class="page-link-pro disabled">…</span></li>
+        {% endif %}
+      {% endif %}
+    {% endwith %}
+  {% endfor %}
+  {% endwith %}
+  </ul>
+
+  {% if page_obj.has_next %}
+    <a class="btn btn-outline-secondary btn-sm rounded-pill" href="?{% if qs_params %}{{ qs_params }}&amp;{% endif %}page={{ page_obj.next_page_number }}" aria-label="P&aacute;gina siguiente">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron-right"/></svg>
+    </a>
+    <a class="btn btn-outline-secondary btn-sm rounded-pill" href="?{% if qs_params %}{{ qs_params }}&amp;{% endif %}page={{ paginator.num_pages }}" aria-label="&Uacute;ltima p&aacute;gina">
+      &Uacute;ltimo <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ms-1"><use href="#i-chevrons-right"/></svg>
+    </a>
+  {% endif %}
+</nav>
+
+{% else %}
+
+<div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+  {% if list_mode == "processed" %}
+  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-secondary mb-3 opacity-50"><use href="#i-folder-check"/></svg>
+  {% else %}
+  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-secondary mb-3 opacity-50"><use href="#i-folder-clock"/></svg>
+  {% endif %}
+  <h3 class="h5 fw-bold mb-2">Sin resultados</h3>
+  <p class="text-muted mb-4 mx-auto" style="max-width:520px">
+    No se encontraron actas para los filtros seleccionados.
+    Intenta ajustar los criterios de b&uacute;squeda o limpiar los filtros.
+  </p>
+  <a class="btn btn-outline-secondary rounded-pill fw-semibold d-inline-flex align-items-center gap-2 mx-auto" href="{% if list_mode == 'processed' %}{% url 'actas_procesadas' %}{% else %}{% url 'actas_pendientes' %}{% endif %}">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh-cw"/></svg>
+    Limpiar filtros
+  </a>
+</div>
+
+{% endif %}
+
+<footer class="app-foot text-center text-muted small pb-4 pt-2">
+  <b class="text-primary-emphasis">Elecciones 2026 · Procesamiento Electoral</b> — elecciones2026.whadox.com ·
+  CPU limitado a 1 worker · Optimizado para VPS 4vCPU · 7.8 GB RAM
+</footer>
+{% endblock %}

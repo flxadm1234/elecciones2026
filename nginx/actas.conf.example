@@ -1,0 +1,35 @@
+upstream actas_app_server {
+    server unix:/run/actas/actas.sock fail_timeout=0;
+}
+
+server {
+    listen 80;
+    server_name actas.example.com;
+
+    client_max_body_size 64M;
+
+    access_log /var/log/nginx/actas.access.log;
+    error_log /var/log/nginx/actas.error.log;
+
+    location /static/ {
+        alias /opt/actas/staticfiles/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /media/ {
+        alias /opt/actas/media/;
+        internal;
+    }
+
+    location / {
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+        proxy_pass http://actas_app_server;
+    }
+}

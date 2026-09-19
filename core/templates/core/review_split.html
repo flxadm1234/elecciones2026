@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+{% load confidence_tags %}
+
+{% block title %}Revisi&oacute;n Humana &middot; Acta #{{ acta.id }} · Elecciones 2026{% endblock %}
+
+{% block body %}
+<div class="page-head">
+  <div>
+    <nav aria-label="Ruta de navegación" class="breadcrumb-nav small mb-2">
+      <a href="{% url 'dashboard' %}" class="text-decoration-none text-muted">Inicio</a>
+      <span class="mx-2 text-body-tertiary">/</span>
+      <a href="{% url 'actas_procesadas' %}" class="text-decoration-none text-muted">Actas Procesadas</a>
+      <span class="mx-2 text-body-tertiary">/</span>
+      <a href="{% url 'acta_detail' acta.id %}" class="text-decoration-none text-muted">Detalle #{{ acta.id }}</a>
+      <span class="mx-2 text-body-tertiary">/</span>
+      <span class="fw-semibold text-body">Revisi&oacute;n Split</span>
+    </nav>
+    <h1 class="h2 fw-bold mb-1 text-primary-emphasis lh-1 d-inline-flex align-items-center flex-wrap gap-2">
+      Revisi&oacute;n Humana &middot; Acta #{{ acta.id }}
+      {% if review_item %}
+        {% if review_item.status == "revisado" %}
+          <span class="badge rounded-pill text-bg-primary d-inline-flex align-items-center gap-1.5 px-3 py-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg>
+            Revisado
+          </span>
+        {% else %}
+          <span class="badge rounded-pill text-bg-warning d-inline-flex align-items-center gap-1.5 px-3 py-1.5" style="background:#D4AF37 !important;border-color:#D4AF37 !important;color:#fff !important">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-clock"/></svg>
+            Pendiente
+          </span>
+        {% endif %}
+      {% endif %}
+      {% if conf_level == 'low' %}
+        <span class="badge rounded-pill text-bg-danger d-inline-flex align-items-center gap-1.5 px-3 py-1.5">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-triangle"/></svg>
+          Confianza {{ conf_pct|default:"N/D" }}%
+        </span>
+      {% elif conf_level == 'medium' %}
+        <span class="badge rounded-pill text-bg-warning px-3 py-1.5">Media {{ conf_pct|default:"N/D" }}%</span>
+      {% else %}
+        <span class="badge rounded-pill text-bg-success d-inline-flex align-items-center gap-1.5 px-3 py-1.5">Confianza {{ conf_pct|default:"N/D" }}%</span>
+      {% endif %}
+    </h1>
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-shrink-0">
+    <a class="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-1.5 fw-semibold" href="{% url 'acta_detail' acta.id %}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-file-text"/></svg>
+      Ver Detalle
+    </a>
+  </div>
+</div>
+
+<section class="review-grid row row-cols-1 row-cols-lg-2 g-3 g-lg-4 mb-4" aria-label="Vista dividida de revisi&oacute;n humana">
+  <div class="col" aria-label="Imagen original del acta">
+    <div class="card h-100 border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+      <div class="review-image-wrap card-body p-0 viewer-stage" id="reviewImageWrap" style="height:78vh;min-height:520px;max-height:820px;background:#0f172a;position:relative;overflow:hidden">
+        <img id="reviewImg"
+             src="{{ image_url }}"
+             alt="Imagen original acta #{{ acta.id }}"
+             loading="eager"
+             style="position:absolute;top:50%;left:50%;transform-origin:center center;transition:transform .08s ease-out;max-width:none;cursor:grab;will-change:transform">
+        <div class="review-image-controls d-inline-flex align-items-center gap-1 p-2 rounded-3 bg-white border shadow-lg" role="toolbar" aria-label="Controles de imagen" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:5">
+          <button type="button" id="btnZoomIn" class="btn btn-sm btn-outline-secondary rounded-2 d-grid place-items-center" aria-label="Aumentar zoom" title="Aumentar zoom" style="width:34px;height:34px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-zoom-in"/></svg>
+          </button>
+          <button type="button" id="btnZoomOut" class="btn btn-sm btn-outline-secondary rounded-2 d-grid place-items-center" aria-label="Reducir zoom" title="Reducir zoom" style="width:34px;height:34px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-zoom-out"/></svg>
+          </button>
+          <button type="button" id="btnRotate" class="btn btn-sm btn-outline-secondary rounded-2 d-grid place-items-center" aria-label="Rotar 90&deg;" title="Rotar 90 grados" style="width:34px;height:34px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-rotate-cw"/></svg>
+          </button>
+          <button type="button" id="btnReset" class="btn btn-sm btn-outline-secondary rounded-2 d-grid place-items-center" aria-label="Restablecer" title="Restablecer zoom y rotaci&oacute;n (R)" style="width:34px;height:34px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-rotate-ccw"/></svg>
+          </button>
+          <button type="button" id="btnMaximize" class="btn btn-sm btn-outline-secondary rounded-2 d-grid place-items-center" aria-label="Pantalla completa" title="Ver en pantalla completa (F)" style="width:34px;height:34px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-maximize"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col" aria-label="Formulario de correcci&oacute;n de votos">
+    <article class="review-form card h-100 border-0 shadow-sm rounded-4 bg-white overflow-hidden d-flex flex-column">
+      <header class="review-form__head card-header bg-transparent border-0 px-4 pt-4 pb-3">
+        <h2 class="h5 fw-bold mb-1 text-primary-emphasis d-inline-flex align-items-center gap-2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-edit-3"/></svg>
+          Correcci&oacute;n de Votos por &Aacute;mbito
+        </h2>
+        <p class="small text-muted mb-0">Modifique los valores y se guardan al perder foco (auto-save blur). Cada cambio se audita en tiempo real con trazabilidad completa.</p>
+      </header>
+
+      <div class="review-form__body card-body px-4 pb-3 pt-0 flex-grow-1 d-flex flex-column">
+        <div class="nav-tabs-pro mb-3 border-bottom" role="tablist" aria-label="&Aacute;mbitos electorales">
+          {% for g in ambitos_grouped %}
+          {% with amb=g.key entries=g.entries label=g.label count=g.count %}
+          <button type="button"
+                  class="tab-btn-pro nav-link-pro {% if forloop.first %}is-active{% endif %}{% if count == 0 %}is-disabled{% endif %}"
+                  data-tab-for="review-ambitos"
+                  data-tab-target="#tab-rev-{{ amb }}"
+                  data-amb-selector="{{ amb }}"
+                  role="tab"
+                  id="tab-btn-{{ amb }}"
+                  aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+                  aria-controls="tab-rev-{{ amb }}"
+                  {% if count == 0 %}aria-disabled="true"{% endif %}
+                  style="padding:.6rem 1rem;border-bottom:3px solid transparent;margin-right:.25rem;font-weight:700;font-size:.88rem;color:#64748b;background:transparent">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><use href="#i-columns-2"/></svg>
+            <span>{{ label }}</span>
+            <span class="badge rounded-pill text-bg-light ms-2" style="font-size:.7rem">{{ count }}</span>
+          </button>
+          {% endwith %}
+          {% endfor %}
+        </div>
+
+        {% for g in ambitos_grouped %}
+        {% with amb=g.key entries=g.entries label=g.label count=g.count %}
+        <div id="tab-rev-{{ amb }}"
+             class="tab-panel {% if forloop.first %}is-active{% endif %} flex-grow-1"
+             data-ambito="{{ amb }}"
+             role="tabpanel"
+             style="{% if not forloop.first %}display:none{% endif %}"
+             aria-labelledby="tab-btn-{{ amb }}">
+          <header class="ambito-head d-flex flex-wrap flex-sm-nowrap align-items-sm-center justify-content-between gap-3 mb-3">
+            <h3 class="h6 fw-bold mb-0 text-body-emphasis">{{ label }}</h3>
+            <div class="ambito-totals d-flex flex-wrap gap-2" data-amb-totals="{{ amb }}">
+              <span class="badge rounded-pill text-bg-light d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold small">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg>
+                Org: <b data-count-orgs="0">0</b>
+              </span>
+              <span class="badge rounded-pill text-bg-info d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold small">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg>
+                Suma: <b data-suma-val="0">0</b>
+              </span>
+              <span class="badge rounded-pill text-bg-primary d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold small">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-target"/></svg>
+                Acta: <b data-total-val="0">0</b>
+              </span>
+              <span class="badge rounded-pill text-bg-success d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold small" data-diff-chip hidden>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg>
+                Diff <b data-diff-val="0">0</b> &check;
+              </span>
+              <span class="badge rounded-pill text-bg-danger d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold small" data-diff-chip-err hidden>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-triangle"/></svg>
+                Diff <b data-diff-val-err="0">0</b> &warn;
+              </span>
+            </div>
+          </header>
+
+          <div class="vote-rows-wrap d-flex flex-column gap-2 mb-3" role="table" aria-label="Votos por organizaci&oacute;n - {{ label }}">
+            {% for e in entries %}
+            {% with cat=e.entry_category org_name=e.organization_short_name|default:e.field_name|default:"—" %}
+            <div class="vote-row card card-body bg-body-tertiary border rounded-3 d-flex flex-column flex-md-row align-items-stretch align-items-md-center gap-2 gap-md-3 p-2 p-md-3{% if e.is_corrected %} is-corrected border-success{% endif %}"
+                 style="--row-accent:{% if cat == 'organizacion' %}rgba(15,58,125,0.06){% elif cat == 'blanco' %}rgba(212,175,55,0.08){% elif cat == 'nulo' or cat == 'impugnado' %}rgba(220,38,38,0.06){% elif cat == 'total' %}rgba(5,150,105,0.08){% else %}rgba(148,163,184,0.08){% endif %};background:var(--row-accent) !important"
+                 data-entry-id="{{ e.id }}"
+                 data-entry-cat="{{ cat }}"
+                 data-amb-row="{{ amb }}"
+                 role="row">
+              <div class="vote-row__name d-flex align-items-center gap-2 flex-grow-1 flex-wrap min-w-0" role="cell" style="flex:1 1 220px">
+                {% if cat == "organizacion" %}
+                  {% org_logo_or_icon org_name %}
+                  <span title="{{ org_name }}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:normal;line-height:1.22;font-weight:700;font-size:.9rem">{{ org_name }}</span>
+                {% elif cat == "blanco" %}
+                  <span class="badge rounded-pill text-bg-warning d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold" style="background:#D4AF37 !important;color:#fff !important">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-circle"/></svg>
+                    Blancos
+                  </span>
+                {% elif cat == "nulo" %}
+                  <span class="badge rounded-pill text-bg-danger d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x-octagon"/></svg>
+                    Nulos
+                  </span>
+                {% elif cat == "impugnado" %}
+                  <span class="badge rounded-pill d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold" style="background:#FCE7F3;color:#831843;border-color:#F9A8D4">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-octagon"/></svg>
+                    Impugnados
+                  </span>
+                {% elif cat == "total" %}
+                  <span class="badge rounded-pill text-bg-success d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg>
+                    TOTAL Emitidos
+                  </span>
+                {% else %}
+                  <span class="badge rounded-pill text-bg-secondary">{{ org_name }}</span>
+                {% endif %}
+                {% if e.is_corrected %}
+                  <span class="badge rounded-pill text-bg-success d-inline-flex align-items-center gap-1 ms-2 px-2 py-1" style="font-size:.65rem" title="Valor corregido manualmente y auditado">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-edit-2"/></svg>
+                    CORR
+                  </span>
+                {% endif %}
+              </div>
+
+              <div class="vote-row__input d-flex flex-column gap-1 align-items-stretch align-items-md-end min-w-0" role="cell" style="flex:0 0 180px">
+                <label for="vote-{{ e.id }}" class="visually-hidden">Votos {{ org_name }}</label>
+                <input type="number"
+                       id="vote-{{ e.id }}"
+                       min="0" step="1"
+                       class="vote-input form-control form-control-lg text-end fw-bold{% if cat == 'total' %} vote-input--total{% endif %}"
+                       style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1.15rem;font-weight:800;color:#0F3A7D;padding:.4rem .75rem"
+                       data-vote-entry-id="{{ e.id }}"
+                       data-field-name="votes"
+                       data-original-value="{{ e.votes|default:0 }}"
+                       value="{{ e.votes|default:0 }}"
+                       aria-describedby="vote-{{ e.id }}-meta">
+                <span class="vote-input__original small text-muted fw-medium text-end" style="font-size:.72rem">IA: {{ e.votes|default:0 }}</span>
+              </div>
+
+              <div class="vote-row__meta d-flex align-items-center justify-content-center justify-content-md-start" role="cell" id="vote-{{ e.id }}-meta" style="flex:0 0 150px">
+                {% if cat == "organizacion" %}
+                  {% confidence_bar_html e.field_confidence True 120 %}
+                {% elif cat == "total" %}
+                  <span class="badge rounded-pill text-bg-info d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold small">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bot"/></svg>
+                    {{ e.data_origin|default:"ia" }}
+                  </span>
+                {% else %}
+                  <span class="badge rounded-pill text-bg-secondary px-3 py-1.5">{{ e.field_confidence|conf_pct }}</span>
+                {% endif %}
+              </div>
+
+              <div class="vote-row__status text-center" role="cell" aria-live="polite" id="vote-row-status-{{ e.id }}" style="flex:0 0 110px;min-height:28px"></div>
+            </div>
+            {% endwith %}
+            {% empty %}
+            <div class="empty-state card card-body text-center bg-body-tertiary rounded-4 py-5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-body-tertiary mb-2"><use href="#i-inbox"/></svg>
+              <div class="text-muted fw-medium small">No hay registros de votos para este &aacute;mbito.</div>
+              {% if acta.layout_flags and acta.layout_flags.single_column_iquitos and amb == "muni_distrital" %}
+                <div class="mt-3">
+                  <span class="badge rounded-pill text-bg-warning d-inline-flex align-items-center gap-1.5 px-3 py-1.5 small" style="background:#D4AF37 !important;color:#fff !important">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-circle"/></svg>
+                    Regla IQUITOS: este acta solo contiene Municipal Provincial.
+                  </span>
+                </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+
+        <footer class="review-footer mt-auto pt-3 border-top d-flex flex-wrap flex-sm-nowrap align-items-sm-center justify-content-between gap-3">
+          <div class="review-footer__meta small text-muted fw-medium d-inline-flex align-items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-shield-check"/></svg>
+            <span>Cada modificaci&oacute;n se registra en auditor&iacute;a.</span>
+            {% if review_item %}
+              <span>&middot; Ingreso: <b>{{ review_item.created_at|date:"d/m/Y H:i" }}</b></span>
+            {% endif %}
+          </div>
+          <form method="post" action="{{ review_finalize_url }}" onsubmit="return confirm('¿Confirma que desea finalizar la revisión del acta #{{ acta.id }}? Esta acción marca el acta como REVISADO y crea una entrada de auditoría.');" class="flex-shrink-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success rounded-pill fw-bold d-inline-flex align-items-center gap-2 px-4 py-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check-circle"/></svg>
+              Finalizar y Aprobar Acta
+            </button>
+          </form>
+        </footer>
+      </div>
+    </article>
+  </div>
+</section>
+
+<div class="save-indicator position-fixed bottom-4 end-4 card shadow-lg border-0 rounded-pill px-3 py-2 d-none align-items-center gap-2 bg-white" id="saveIndicator" role="status" aria-live="polite" style="z-index:1090">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-save"/></svg>
+  <div class="save-indicator__meta d-flex flex-column lh-1">
+    <span class="save-indicator__label small fw-bold" id="saveLabel">&Uacute;ltimo guardado</span>
+    <span class="save-indicator__ts text-muted small" id="saveTs">—</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  'use strict';
+  var img = document.getElementById('reviewImg');
+  var wrap = document.getElementById('reviewImageWrap');
+  if (img && wrap) {
+    var state = { zoom: 1, rotate: 0, tx: 0, ty: 0 };
+    var ZOOM_STEP = 0.12, ZOOM_MIN = 0.25, ZOOM_MAX = 5;
+    function applyTransform() {
+      img.style.transform = 'translate('+state.tx+'px,'+state.ty+'px) scale('+state.zoom+') rotate('+state.rotate+'deg)';
+    }
+    function setZoom(z, cx, cy) {
+      z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(+z).toFixed(3)));
+      if (z === state.zoom) return;
+      if (typeof cx === 'number' && typeof cy === 'number') {
+        var r = wrap.getBoundingClientRect();
+        var wx = cx - r.left, wy = cy - r.top;
+        var cxL = (wx - state.tx) / state.zoom;
+        var cyL = (wy - state.ty) / state.zoom;
+        state.tx = wx - cxL * z;
+        state.ty = wy - cyL * z;
+      }
+      state.zoom = z; applyTransform();
+    }
+    document.getElementById('btnZoomIn').addEventListener('click', function(){
+      var r = wrap.getBoundingClientRect(); setZoom(state.zoom + ZOOM_STEP, r.left + r.width/2, r.top + r.height/2);
+    });
+    document.getElementById('btnZoomOut').addEventListener('click', function(){
+      var r = wrap.getBoundingClientRect(); setZoom(state.zoom - ZOOM_STEP, r.left + r.width/2, r.top + r.height/2);
+    });
+    document.getElementById('btnRotate').addEventListener('click', function(){
+      state.rotate = (state.rotate + 90) % 360; applyTransform();
+    });
+    document.getElementById('btnReset').addEventListener('click', function(){
+      state = { zoom:1, rotate:0, tx:0, ty:0 }; applyTransform();
+    });
+    document.getElementById('btnMaximize').addEventListener('click', function(){
+      if (!document.fullscreenElement) (wrap.requestFullscreen||wrap.webkitRequestFullscreen||wrap.msRequestFullscreen||function(){}).call(wrap);
+      else (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen||function(){}).call(document);
+    });
+    wrap.addEventListener('wheel', function(ev){
+      ev.preventDefault();
+      var delta = ev.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+      setZoom(state.zoom + delta, ev.clientX, ev.clientY);
+    }, { passive: false });
+    var pan = null;
+    wrap.addEventListener('pointerdown', function(ev){
+      if (ev.target.closest('.review-image-controls')) return;
+      wrap.setPointerCapture && wrap.setPointerCapture(ev.pointerId);
+      wrap.classList.add('is-panning');
+      pan = { x: ev.clientX, y: ev.clientY, tx: state.tx, ty: state.ty };
+      ev.preventDefault();
+    });
+    wrap.addEventListener('pointermove', function(ev){
+      if (!pan) return;
+      state.tx = pan.tx + (ev.clientX - pan.x);
+      state.ty = pan.ty + (ev.clientY - pan.y);
+      applyTransform();
+    });
+    function endPan(ev){
+      if (wrap.releasePointerCapture && pan) try { wrap.releasePointerCapture(ev.pointerId); } catch(_){}
+      wrap.classList.remove('is-panning'); pan = null;
+    }
+    wrap.addEventListener('pointerup', endPan);
+    wrap.addEventListener('pointercancel', endPan);
+    wrap.addEventListener('dblclick', function(ev){
+      setZoom(state.zoom > 1.01 ? 1 : 2, ev.clientX, ev.clientY);
+    });
+    window.addEventListener('keydown', function(ev){
+      if (ev.target && /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return;
+      var k = ev.key.toLowerCase();
+      if (k === 'r') document.getElementById('btnReset').click();
+      else if (k === 'f') document.getElementById('btnMaximize').click();
+      else if (k === 'g') document.getElementById('btnRotate').click();
+      else if (k === '+' || k === '=') document.getElementById('btnZoomIn').click();
+      else if (k === '-' || k === '_') document.getElementById('btnZoomOut').click();
+    });
+    function fitInit(){
+      state = { zoom:1, rotate:0, tx:0, ty:0 }; applyTransform();
+    }
+    if (img.complete) fitInit();
+    img.addEventListener('load', fitInit);
+    window.addEventListener('resize', function(){ try { fitInit(); } catch(_){} });
+  }
+
+  var TAB_GROUP = 'review-ambitos';
+  document.querySelectorAll('.tab-btn-pro[data-tab-for="'+TAB_GROUP+'"]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (this.classList.contains('is-disabled') || this.getAttribute('aria-disabled') === 'true') return;
+      var tgt = this.getAttribute('data-tab-target');
+      if (!tgt) return;
+      document.querySelectorAll('.tab-btn-pro[data-tab-for="'+TAB_GROUP+'"]').forEach(function(b){
+        b.classList.remove('is-active'); b.setAttribute('aria-selected','false');
+        b.style.borderBottomColor = 'transparent';
+        b.style.color = '#64748b';
+      });
+      document.querySelectorAll('.tab-panel[data-ambito]').forEach(function(p){ p.classList.remove('is-active'); p.style.display = 'none'; });
+      this.classList.add('is-active'); this.setAttribute('aria-selected','true');
+      this.style.borderBottomColor = '#0F3A7D';
+      this.style.color = '#0F3A7D';
+      var p = document.querySelector(tgt);
+      if (p) {
+        p.classList.add('is-active'); p.style.display = '';
+        var amb = p.getAttribute('data-ambito');
+        if (amb) recalcularTotales(amb);
+        try { p.scrollTop = 0; } catch(_){}
+      }
+    });
+  });
+  (function(){
+    var type = ("{{ acta.acta_type|default:''|escapejs }}").toLowerCase();
+    var order = type === 'provincial_distrital' ? ['muni_provincial','muni_distrital','gob_gobernador_vice','consejero_regional']
+              : type === 'regional' ? ['gob_gobernador_vice','consejero_regional','muni_provincial','muni_distrital']
+              : ['gob_gobernador_vice','muni_provincial','muni_distrital','consejero_regional'];
+    for (var i = 0; i < order.length; i++) {
+      var b = document.querySelector('.tab-btn-pro[data-amb-selector="'+order[i]+'"]');
+      if (b && !b.classList.contains('is-disabled')) { if (!b.classList.contains('is-active')) b.click(); break; }
+    }
+  })();
+
+  var SAVE_URL = "{{ review_save_api_url|escapejs }}";
+  var CSRF = (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/)||[])[1] || '';
+  var saveIndicator = document.getElementById('saveIndicator');
+  var saveLabel = document.getElementById('saveLabel');
+  var saveTs = document.getElementById('saveTs');
+  function showGlobalSave(state, msg, tsText){
+    if (!saveIndicator) return;
+    saveIndicator.classList.remove('is-saving','is-error');
+    saveIndicator.classList.remove('d-none');
+    saveIndicator.classList.add('d-inline-flex');
+    if (state === 'saving') saveIndicator.classList.add('is-saving');
+    if (state === 'error') saveIndicator.classList.add('is-error');
+    if (saveLabel) saveLabel.textContent = msg || '';
+    if (saveTs && tsText) saveTs.textContent = tsText;
+    saveIndicator.hidden = false;
+    if (state === 'saved') {
+      clearTimeout(showGlobalSave._t);
+      showGlobalSave._t = setTimeout(function(){ saveIndicator.hidden = true; saveIndicator.classList.add('d-none'); saveIndicator.classList.remove('d-inline-flex'); }, 2600);
+    }
+  }
+  function fmtNow(){
+    try {
+      var d = new Date(), p = function(n){ return String(n).padStart(2,'0'); };
+      return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+    } catch(_){ return '—'; }
+  }
+  function setRowStatus(entryId, html, type) {
+    var node = document.getElementById('vote-row-status-'+entryId);
+    if (!node) return;
+    node.innerHTML = html || '';
+    node.className = 'vote-row__status text-center' + (type ? ' vote-row__status--'+type : '') + ' d-flex align-items-center justify-content-center';
+  }
+  function saveField(input){
+    var entryId = input.getAttribute('data-vote-entry-id');
+    var fieldName = input.getAttribute('data-field-name') || 'votes';
+    var orig = input.getAttribute('data-original-value');
+    var newVal = input.value;
+    if (!entryId) return Promise.resolve(false);
+    if (String(newVal) === String(orig) && !input.classList.contains('is-touched')) {
+      return Promise.resolve(false);
+    }
+    showGlobalSave('saving', 'Guardando cambios…', 'procesando');
+    setRowStatus(entryId, '<span class="badge rounded-pill text-bg-info small fw-semibold d-inline-flex align-items-center gap-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><use href="#i-refresh-cw"/></svg> guardando</span>', 'saving');
+    input.readOnly = true;
+    var body = JSON.stringify({ vote_entry_id: parseInt(entryId,10), field_name: fieldName, new_value: newVal });
+    return fetch(SAVE_URL, {
+      method: 'POST', credentials: 'same-origin',
+      headers: {
+        'Content-Type':'application/json', Accept:'application/json',
+        'X-CSRFToken': CSRF, 'X-Requested-With':'XMLHttpRequest',
+      },
+      body: body,
+    }).then(function(resp){
+      input.readOnly = false;
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      return resp.json();
+    }).then(function(data){
+      if (data && data.ok) {
+        input.setAttribute('data-original-value', String(data.new_value));
+        input.classList.remove('is-touched');
+        var row = input.closest('.vote-row');
+        if (row) row.classList.add('is-corrected','border-success');
+        setRowStatus(entryId, '<span class="badge rounded-pill text-bg-success small fw-semibold d-inline-flex align-items-center gap-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg> guardado ✓</span>', 'saved');
+        showGlobalSave('saved', 'Cambios guardados OK', fmtNow());
+        var amb = input.getAttribute('data-amb-row') || (input.closest && input.closest('[data-ambito]') && input.closest('[data-ambito]').getAttribute('data-ambito'));
+        if (amb) recalcularTotales(amb);
+      } else {
+        setRowStatus(entryId, '<span class="badge rounded-pill text-bg-danger small fw-semibold">✗ '+(data && data.error ? data.error : 'error')+'</span>', 'error');
+        showGlobalSave('error', (data && data.error) || 'Error al guardar', fmtNow());
+      }
+      return data && data.ok;
+    }).catch(function(err){
+      input.readOnly = false;
+      setRowStatus(entryId, '<span class="badge rounded-pill text-bg-danger small fw-semibold">✗ red</span>', 'error');
+      showGlobalSave('error', 'Error de red', fmtNow());
+      return false;
+    });
+  }
+
+  document.querySelectorAll('.vote-input').forEach(function(inp){
+    var row = inp.closest('.vote-row');
+    if (row) inp.setAttribute('data-amb-row', row.getAttribute('data-amb-row') || '');
+    inp.addEventListener('input', function(){
+      if (String(this.value) !== String(this.getAttribute('data-original-value'))) { this.classList.add('is-touched'); this.style.borderColor = '#D4AF37'; this.style.boxShadow = '0 0 0 3px rgba(212,175,55,.18)'; }
+      else { this.classList.remove('is-touched'); this.style.borderColor=''; this.style.boxShadow=''; }
+      var a = this.getAttribute('data-amb-row') || (this.closest && this.closest('[data-ambito]') && this.closest('[data-ambito]').getAttribute('data-ambito')) || '';
+      if (a) recalcularTotales(a);
+    });
+    inp.addEventListener('blur', function(){ if (this.classList.contains('is-touched')) saveField(this); });
+    inp.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter') { ev.preventDefault(); this.blur(); }
+      if (ev.key === 'Escape') {
+        this.value = this.getAttribute('data-original-value');
+        this.classList.remove('is-touched'); this.style.borderColor=''; this.style.boxShadow=''; this.blur();
+        var a = this.getAttribute('data-amb-row'); if (a) recalcularTotales(a);
+      }
+    });
+  });
+
+  function recalcularTotales(ambito){
+    if (!ambito) return;
+    var panel = document.querySelector('.tab-panel[data-ambito="'+ambito+'"]');
+    if (!panel) return;
+    var orgs=0, blanco=0, nulo=0, impugnado=0, total=0, countOrgs=0;
+    panel.querySelectorAll('.vote-row').forEach(function(r){
+      var cat = r.getAttribute('data-entry-cat');
+      var inp = r.querySelector('.vote-input');
+      var val = parseInt(inp && inp.value, 10) || 0;
+      if (cat === 'organizacion') { orgs += val; countOrgs += 1; }
+      else if (cat === 'blanco') blanco = val;
+      else if (cat === 'nulo') nulo = val;
+      else if (cat === 'impugnado') impugnado = val;
+      else if (cat === 'total') total = val;
+    });
+    var suma = orgs + blanco + nulo + impugnado;
+    var diff = suma - total;
+    var header = document.querySelector('[data-amb-totals="'+ambito+'"]');
+    if (header) {
+      var o = header.querySelector('[data-count-orgs]'); if (o) o.textContent = countOrgs;
+      var s = header.querySelector('[data-suma-val]'); if (s) s.textContent = suma;
+      var t = header.querySelector('[data-total-val]'); if (t) t.textContent = total;
+      var chipOk = header.querySelector('[data-diff-chip]');
+      var chipErr = header.querySelector('[data-diff-chip-err]');
+      var dOk = header.querySelector('[data-diff-val]');
+      var dErr = header.querySelector('[data-diff-val-err]');
+      if (total > 0) {
+        if (diff === 0) {
+          if (chipOk) chipOk.hidden = false; if (chipErr) chipErr.hidden = true;
+          if (dOk) dOk.textContent = diff;
+        } else {
+          if (chipOk) chipOk.hidden = true; if (chipErr) chipErr.hidden = false;
+          if (dErr) dErr.textContent = (diff > 0 ? '+' : '') + diff;
+        }
+      } else {
+        if (chipOk) chipOk.hidden = true; if (chipErr) chipErr.hidden = true;
+      }
+    }
+  }
+  ['muni_provincial','muni_distrital','gob_gobernador_vice','consejero_regional'].forEach(function(a){
+    setTimeout(function(){ recalcularTotales(a); }, 10);
+  });
+
+  var st = document.createElement('style');
+  st.textContent = '@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}';
+  document.head.appendChild(st);
+})();
+</script>
+{% endblock %}

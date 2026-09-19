@@ -1,0 +1,454 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard · Elecciones 2026 · Procesamiento IA{% endblock %}
+
+{% block body %}
+<div class="page-head d-flex flex-wrap flex-md-nowrap align-items-md-center justify-content-between gap-3 mb-4">
+  <div>
+    <h1 class="page-title h2 fw-bold mb-1 text-primary-emphasis">Panel de Control</h1>
+    <p class="page-subtitle text-muted mb-0">Vista general del estado de procesamiento de actas electorales, m&eacute;tricas y progreso en tiempo real.</p>
+  </div>
+  <div class="page-head-actions flex-shrink-0">
+    <span class="badge rounded-pill text-bg-info d-inline-flex align-items-center gap-2 px-3 py-2" title="Build versi&oacute;n">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="18" height="12" x="2" y="6" rx="2"/>
+        <circle cx="12" cy="12" r="2"/>
+      </svg>
+      <span class="small fw-semibold">Build {{ APP_BUILD|default:"20260918-006" }}</span>
+    </span>
+  </div>
+</div>
+
+<div class="flash-row mb-4 d-flex flex-column gap-3" id="flashRow" role="status" aria-live="polite">
+  {% if v_batch_empty %}
+  <div class="alert alert-warning d-flex align-items-start gap-3 rounded-3 border-0 p-4 shadow-sm" id="flash-empty" role="alert">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 mt-0.5"><use href="#i-alert-triangle"/></svg>
+    <div class="flex-grow-1">
+      <strong class="d-block mb-1">Sin actas pendientes en este momento.</strong>
+      <p class="mb-0 small lh-1.6">El pipeline no detect&oacute; nuevos registros en <code>actas_escrutinio</code> pendientes de transcripci&oacute;n.</p>
+    </div>
+  </div>
+  {% endif %}
+  {% if v_flash_req or v_flash_enq or v_flash_skip %}
+  <div class="alert alert-success d-flex align-items-start gap-3 rounded-3 border-0 p-4 shadow-sm" id="flash-enqueued" role="alert">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 mt-0.5"><use href="#i-check-circle"/></svg>
+    <div class="flex-grow-1">
+      <strong class="d-block mb-1">Lote enviado a procesamiento.</strong>
+      <p class="mb-0 small lh-1.6">
+        Solicitadas <strong>{{ v_flash_req|default:0 }}</strong> actas &middot; encoladas exitosamente: <strong>{{ v_flash_enq|default:0 }}</strong>
+        {% if v_flash_skip %}&middot; omitidas (rate-limit): <strong>{{ v_flash_skip }}</strong>{% endif %}.
+        El progreso se muestra en tiempo real.
+      </p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<section class="kpi-grid mb-4" aria-label="M&eacute;tricas principales">
+  <div class="row g-3 g-lg-4 row-cols-1 row-cols-sm-2 row-cols-xl-4">
+    <div class="col">
+      <article class="kpi-card kpi-card--primary card h-100 border-0 shadow-sm rounded-4 overflow-hidden" style="background:linear-gradient(135deg,rgba(15,58,125,0.06),rgba(15,58,125,0.02));">
+        <div class="card-body p-4 d-flex flex-column h-100">
+          <div class="d-flex align-items-start justify-content-between mb-3">
+            <div class="kpi-icon rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:#0F3A7D;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-folder-clock"/></svg>
+            </div>
+          </div>
+          <div class="kpi-body mt-auto flex-grow-1 d-flex flex-column">
+            <div class="kpi-label small text-muted fw-semibold text-uppercase tracking-wider mb-1" style="letter-spacing:.05em;">Actas Pendientes</div>
+            <div class="kpi-value display-5 fw-bold text-primary mb-3 lh-1" id="kpiPending">{{ badge_counts.pending|default:0 }}</div>
+            <div class="kpi-footer mt-auto">
+              <span class="badge rounded-pill bg-warning text-primary fw-semibold px-3 py-1.5">Por transcribir</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div class="col">
+      <article class="kpi-card kpi-card--success card h-100 border-0 shadow-sm rounded-4 overflow-hidden" style="background:linear-gradient(135deg,rgba(5,150,105,0.08),rgba(5,150,105,0.02));">
+        <div class="card-body p-4 d-flex flex-column h-100">
+          <div class="d-flex align-items-start justify-content-between mb-3">
+            <div class="kpi-icon rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:#059669;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-folder-check"/></svg>
+            </div>
+          </div>
+          <div class="kpi-body mt-auto flex-grow-1 d-flex flex-column">
+            <div class="kpi-label small text-muted fw-semibold text-uppercase tracking-wider mb-1" style="letter-spacing:.05em;">Procesadas OK</div>
+            <div class="kpi-value display-5 fw-bold mb-3 lh-1" style="color:#047857;" id="kpiProcessed">{{ stats.processed_ok|default:0 }}</div>
+            <div class="kpi-footer mt-auto d-inline-flex align-items-center gap-1.5">
+              <span class="badge rounded-pill text-bg-success px-3 py-1.5 d-inline-flex align-items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg>
+                <span class="fw-semibold">Revisadas: {{ stats.reviewed|default:0 }}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div class="col">
+      <article class="kpi-card kpi-card--warning card h-100 border-0 shadow-sm rounded-4 overflow-hidden" style="background:linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.04));">
+        <div class="card-body p-4 d-flex flex-column h-100">
+          <div class="d-flex align-items-start justify-content-between mb-3">
+            <div class="kpi-icon rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:#D4AF37;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F3A7D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-triangle"/></svg>
+            </div>
+          </div>
+          <div class="kpi-body mt-auto flex-grow-1 d-flex flex-column">
+            <div class="kpi-label small text-muted fw-semibold text-uppercase tracking-wider mb-1" style="letter-spacing:.05em;">Revisi&oacute;n Baja Confianza</div>
+            <div class="kpi-value display-5 fw-bold mb-3 lh-1" style="color:#8b6914;" id="kpiLowConf">{{ badge_counts.low_conf_review|default:0 }}</div>
+            <div class="kpi-footer mt-auto">
+              <span class="badge rounded-pill bg-warning text-primary fw-semibold px-3 py-1.5">Requieren revisi&oacute;n humana</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div class="col">
+      <article class="kpi-card kpi-card--info card h-100 border-0 shadow-sm rounded-4 overflow-hidden" style="background:linear-gradient(135deg,rgba(2,132,199,0.08),rgba(2,132,199,0.02));">
+        <div class="card-body p-4 d-flex flex-column h-100">
+          <div class="d-flex align-items-start justify-content-between mb-3">
+            <div class="kpi-icon rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:#0284C7;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bar-chart-2"/></svg>
+            </div>
+          </div>
+          <div class="kpi-body mt-auto flex-grow-1 d-flex flex-column">
+            <div class="kpi-label small text-muted fw-semibold text-uppercase tracking-wider mb-1" style="letter-spacing:.05em;">Total Votos Validados</div>
+            <div class="kpi-value display-5 fw-bold mb-3 lh-1" style="color:#0369a1;" id="kpiVotes">{{ stats.total_votos|default:0 }}</div>
+            <div class="kpi-footer mt-auto">
+              <span class="badge rounded-pill text-bg-info fw-semibold px-3 py-1.5">Suma consolidada</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="two-col-grid mb-4" aria-label="Gr&aacute;ficos de estado y distribuci&oacute;n">
+  <div class="row g-3 g-lg-4 row-cols-1 row-cols-xl-2">
+    <div class="col">
+      <div class="card chart-card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+        <header class="section-head card-header bg-transparent d-flex flex-wrap flex-sm-nowrap align-items-sm-center justify-content-between gap-2 border-0 px-4 pt-4 pb-2">
+          <div>
+            <h2 class="h5 fw-bold mb-1 text-primary-emphasis">Estado de Procesamiento</h2>
+            <div class="section-subtitle small text-muted">Distribuci&oacute;n actual de actas por estado</div>
+          </div>
+        </header>
+        <div class="chart-wrap card-body p-4 pt-2" style="min-height:340px;">
+          <canvas id="chart-status-donut" role="img" aria-label="Gr&aacute;fico doughnut con distribuci&oacute;n por estado de procesamiento"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card chart-card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+        <header class="section-head card-header bg-transparent d-flex flex-wrap flex-sm-nowrap align-items-sm-center justify-content-between gap-2 border-0 px-4 pt-4 pb-2">
+          <div>
+            <h2 class="h5 fw-bold mb-1 text-primary-emphasis">Distritos Top 10</h2>
+            <div class="section-subtitle small text-muted">Mayor n&uacute;mero de actas procesadas por distrito</div>
+          </div>
+        </header>
+        <div class="chart-wrap card-body p-4 pt-2" style="min-height:340px;">
+          <canvas id="chart-distritos-bar" role="img" aria-label="Gr&aacute;fico de barras con los 10 distritos con mayor procesamiento"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="scope-grid mb-4" aria-label="Ámbitos electorales">
+  <div class="row g-3 g-lg-4 row-cols-1 row-cols-sm-2 row-cols-xl-4">
+    <div class="col">
+      <div class="scope-card scope-card--primary card h-100 border-0 shadow-sm rounded-4" style="background:linear-gradient(135deg,#0F3A7D,#0B2E63);color:#fff;">
+        <div class="card-body p-4 d-flex align-items-start gap-3">
+          <div class="scope-icon rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;background:rgba(212,175,55,0.18);">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-map-pin"/></svg>
+          </div>
+          <div class="scope-body flex-grow-1 min-w-0">
+            <div class="scope-label small text-white-50 fw-semibold text-uppercase tracking-wider mb-1" style="letter-spacing:.05em;">&Aacute;mbito Regional</div>
+            <div class="scope-value h4 fw-bold mb-1 lh-1 text-white">Loreto</div>
+            <div class="scope-sub small text-white-50">Departamento principal</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="scope-card scope-card--accent card h-100 border-0 shadow-sm rounded-4" style="background:linear-gradient(135deg,#D4AF37,#b89628);color:#0F3A7D;">
+        <div class="card-body p-4 d-flex align-items-start gap-3">
+          <div class="scope-icon rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;background:rgba(15,58,125,0.15);">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0F3A7D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-building-2"/></svg>
+          </div>
+          <div class="scope-body flex-grow-1 min-w-0">
+            <div class="scope-label small fw-semibold text-uppercase tracking-wider mb-1" style="letter-spacing:.05em;color:rgba(15,58,125,0.7);">Provincia</div>
+            <div class="scope-value h4 fw-bold mb-1 lh-1">Maynas</div>
+            <div class="scope-sub small" style="color:rgba(15,58,125,0.75);">Capital: Iquitos</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="scope-card scope-card--success card h-100 border-0 shadow-sm rounded-4">
+        <div class="card-body p-4 d-flex align-items-start gap-3">
+          <div class="scope-icon rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;background:rgba(5,150,105,0.12);">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg>
+          </div>
+          <div class="scope-body flex-grow-1 min-w-0">
+            <div class="scope-label small text-muted fw-semibold text-uppercase tracking-wider mb-1" style="letter-spacing:.05em;">Distritos Sincronizados</div>
+            <div class="scope-value h4 fw-bold mb-1 lh-1" style="color:#047857;">{{ stats.distritos|default:5 }}</div>
+            <div class="scope-sub small text-muted">Con mesas registradas</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="scope-card scope-card--info card h-100 border-0 shadow-sm rounded-4">
+        <div class="card-body p-4 d-flex align-items-start gap-3">
+          <div class="scope-icon rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;background:rgba(2,132,199,0.12);">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-banknote"/></svg>
+          </div>
+          <div class="scope-body flex-grow-1 min-w-0">
+            <div class="scope-label small text-muted fw-semibold text-uppercase tracking-wider mb-1" style="letter-spacing:.05em;">Mesas Sincronizadas</div>
+            <div class="scope-value h4 fw-bold mb-1 lh-1" style="color:#0369a1;">{{ stats.mesas|default:0 }}</div>
+            <div class="scope-sub small text-muted">Locales de votaci&oacute;n</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card table-pro-wrap border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+  <header class="section-head card-header bg-transparent d-flex flex-wrap flex-sm-nowrap align-items-sm-center justify-content-between gap-3 border-0 px-4 pt-4 pb-3">
+    <div>
+      <h2 class="h5 fw-bold mb-1 text-primary-emphasis">&Uacute;ltimas 15 Procesadas</h2>
+      <div class="section-subtitle small text-muted">Registro de actividad m&aacute;s reciente del pipeline de transcripci&oacute;n por IA</div>
+    </div>
+    <a class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold rounded-pill px-3 py-2 flex-shrink-0" href="{% url 'actas_procesadas' %}">
+      Ver todas
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron-right"/></svg>
+    </a>
+  </header>
+  <div class="table-wrap card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-pro table-hover align-middle mb-0" role="grid" aria-label="Listado de &uacute;ltimas actas procesadas" style="font-size:.9rem;">
+        <thead class="bg-body-tertiary border-bottom">
+          <tr>
+            <th scope="col" class="small fw-semibold text-muted text-uppercase px-4 py-3">#</th>
+            <th scope="col" class="small fw-semibold text-muted text-uppercase px-4 py-3">Legacy ID</th>
+            <th scope="col" class="small fw-semibold text-muted text-uppercase px-4 py-3">Mesa</th>
+            <th scope="col" class="small fw-semibold text-muted text-uppercase px-4 py-3">Distrito</th>
+            <th scope="col" class="small fw-semibold text-muted text-uppercase px-4 py-3">Tipo Acta</th>
+            <th scope="col" class="small fw-semibold text-muted text-uppercase px-4 py-3">Estado</th>
+            <th scope="col" class="small fw-semibold text-muted text-uppercase px-4 py-3">Layout</th>
+            <th scope="col" class="small fw-semibold text-muted text-uppercase px-4 py-3">Actualizado</th>
+          </tr>
+        </thead>
+        <tbody class="border-0">
+          {% for a in ultimas %}
+          <tr>
+            <td class="mono px-4 py-3 text-muted small">{{ a.id }}</td>
+            <td class="mono px-4 py-3 text-muted small">{{ a.acta_escrutinio_legacy_id|default:"—" }}</td>
+            <td class="mono px-4 py-3 small"><strong class="text-primary-emphasis">{{ a.table_number|default:"—" }}</strong></td>
+            <td class="px-4 py-3 small">
+              {% if a.legacy_obj %}{{ a.legacy_obj.distrito|default:"" }}{% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="px-4 py-3 small"><span class="badge rounded-pill text-bg-info px-2.5 py-1 fw-semibold">{{ a.acta_type|upper }}</span></td>
+            <td class="px-4 py-3 small">
+              {% if a.status == "procesado_ok" %}
+                <span class="badge rounded-pill text-bg-success d-inline-flex align-items-center gap-1.5 px-2.5 py-1 fw-semibold">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check-circle"/></svg>
+                  OK
+                </span>
+              {% elif a.status == "revisado_ok" %}
+                <span class="badge rounded-pill text-bg-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1 fw-semibold">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg>
+                  Revisado
+                </span>
+              {% elif a.status == "observado" %}
+                <span class="badge rounded-pill bg-warning text-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1 fw-semibold">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-triangle"/></svg>
+                  Observado
+                </span>
+              {% elif a.status == "error" %}
+                <span class="badge rounded-pill text-bg-danger d-inline-flex align-items-center gap-1.5 px-2.5 py-1 fw-semibold">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x-circle"/></svg>
+                  Error
+                </span>
+              {% else %}
+                <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis px-2.5 py-1 fw-semibold">{{ a.status }}</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 small">
+              {% if a.layout_flags and a.layout_flags.single_column_iquitos %}
+                <span class="badge rounded-pill bg-warning text-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1 fw-semibold">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-triangle"/></svg>
+                  IQUITOS 1-col
+                </span>
+              {% else %}
+                <span class="badge rounded-pill bg-light text-muted border px-2.5 py-1 fw-semibold">2-columnas</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-sm text-muted small">{{ a.updated_at|date:"Y-m-d H:i" }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="px-4 py-5">
+              <div class="alert alert-info d-flex align-items-start gap-3 rounded-3 border-0 p-4 mb-0 mx-auto" style="max-width:520px;" role="alert">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 mt-0.5"><use href="#i-info"/></svg>
+                <div class="flex-grow-1 small">Sin actas procesadas a&uacute;n. Presiona <strong>Procesar Lote</strong> para iniciar la transcripci&oacute;n.</div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer class="app-foot text-center text-muted small pb-4 pt-2">
+  <strong class="text-primary-emphasis">Elecciones 2026 &middot; Procesamiento Electoral</strong> &mdash; elecciones2026.whadox.com &middot;
+  VPS 4vCPU &middot; 7.8 GB RAM &middot; Gunicorn 2 workers
+</footer>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const PROGRESS_URL = "{% url 'api_progress' %}";
+
+  const PALETTE = {
+    primary: "#0F3A7D", accent: "#D4AF37", success: "#059669",
+    warning: "#F59E0B", danger: "#DC2626", info: "#0284C7",
+    text: "#1E293B", grid: "rgba(148,163,184,.18)",
+  };
+
+  const BASE_OPTS = {
+    responsive: true, maintainAspectRatio: false,
+    animation: { duration: 550, easing: "easeOutQuart" },
+    plugins: {
+      legend: { position: "bottom", labels: { boxWidth: 14, color: PALETTE.text, font: { size: 11, weight: 600 }, padding: 12 } },
+      tooltip: { backgroundColor: "rgba(15,58,125,.96)", padding: 10, cornerRadius: 8, titleFont: { size: 12, weight: 700 }, bodyFont: { size: 12 } },
+    },
+    scales: {
+      x: { grid: { color: PALETTE.grid }, ticks: { color: PALETTE.text, font: { size: 11, weight: 500 } } },
+      y: { grid: { color: PALETTE.grid }, ticks: { color: PALETTE.text, font: { size: 11, weight: 500 } }, beginAtZero: true },
+    },
+  };
+
+  function buildCharts(data) {
+    const charts = {};
+    const donut = document.getElementById("chart-status-donut");
+    if (donut && data.status_donut) {
+      charts.donut = new Chart(donut, {
+        type: "doughnut",
+        data: {
+          labels: data.status_donut.labels,
+          datasets: [{
+            data: data.status_donut.data,
+            backgroundColor: data.status_donut.colors || [PALETTE.warning, PALETTE.success, PALETTE.danger, PALETTE.primary, PALETTE.info],
+            borderColor: "#FFFFFF", borderWidth: 2, hoverOffset: 8,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          cutout: "62%",
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 14, color: PALETTE.text, font: { size: 11, weight: 600 }, padding: 14 } },
+            tooltip: { backgroundColor: "rgba(15,58,125,.96)", padding: 10, cornerRadius: 8 },
+          },
+        },
+      });
+    }
+    const bar = document.getElementById("chart-distritos-bar");
+    if (bar && data.distritos_top) {
+      charts.bar = new Chart(bar, {
+        type: "bar",
+        data: {
+          labels: data.distritos_top.labels,
+          datasets: [{
+            label: "N° Actas",
+            data: data.distritos_top.data,
+            backgroundColor: function(ctx) {
+              const c = ctx.chart.ctx.createLinearGradient(0, 0, 0, 220);
+              c.addColorStop(0, PALETTE.primary); c.addColorStop(1, PALETTE.info);
+              return c;
+            },
+            borderRadius: 6, borderSkipped: false, maxBarThickness: 40,
+          }],
+        },
+        options: JSON.parse(JSON.stringify(BASE_OPTS)),
+      });
+    }
+    return charts;
+  }
+
+  function updateCharts(charts, data) {
+    if (!charts) return;
+    try {
+      if (charts.donut && data.status_donut) {
+        charts.donut.data.labels = data.status_donut.labels;
+        charts.donut.data.datasets[0].data = data.status_donut.data;
+        if (data.status_donut.colors) charts.donut.data.datasets[0].backgroundColor = data.status_donut.colors;
+        charts.donut.update("none");
+      }
+      if (charts.bar && data.distritos_top) {
+        charts.bar.data.labels = data.distritos_top.labels;
+        charts.bar.data.datasets[0].data = data.distritos_top.data;
+        charts.bar.update("none");
+      }
+    } catch (e) { console.warn("updateCharts falló", e); }
+  }
+
+  function fetchProgress() {
+    return fetch(PROGRESS_URL, {
+      method: "GET", credentials: "same-origin",
+      headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+    }).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+  }
+
+  function whenChartReady(cb, tries) {
+    tries = tries || 0;
+    if (window.Chart) return cb();
+    if (tries > 50) return console.warn("Chart.js no cargó");
+    setTimeout(() => whenChartReady(cb, tries + 1), 70);
+  }
+
+  function updateKpis(data) {
+    try {
+      const pending = data && data.status_donut
+        ? (data.status_donut.data[data.status_donut.labels.indexOf("Pendiente")] ||
+           data.status_donut.data[data.status_donut.labels.indexOf("Pendientes")] || 0)
+        : 0;
+      const processed = data && data.status_donut
+        ? (data.status_donut.data[data.status_donut.labels.indexOf("Procesado")] ||
+           data.status_donut.data[data.status_donut.labels.indexOf("OK")] || 0)
+        : 0;
+      if (document.getElementById("kpiPending")) document.getElementById("kpiPending").textContent = pending || "0";
+      if (document.getElementById("kpiProcessed")) document.getElementById("kpiProcessed").textContent = processed || "0";
+    } catch (_) {}
+  }
+
+  whenChartReady(async function() {
+    try {
+      const data = await fetchProgress();
+      window.__DASH = buildCharts(data);
+      updateKpis(data);
+      setInterval(async () => {
+        try {
+          const fresh = await fetchProgress();
+          updateCharts(window.__DASH, fresh);
+          updateKpis(fresh);
+        } catch(_) {}
+      }, 30000);
+    } catch (e) { console.error("Init dashboard charts falló", e); }
+  });
+})();
+</script>
+{% endblock %}

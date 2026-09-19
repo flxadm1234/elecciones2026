@@ -1,0 +1,588 @@
+{% extends "base.html" %}
+{% load confidence_tags %}
+
+{% block title %}Gestión Organizaciones Políticas · Elecciones 2026{% endblock %}
+
+{% block body %}
+<div class="page-head">
+  <div>
+    <nav aria-label="Ruta de navegación" class="breadcrumb-nav small mb-2">
+      <a href="{% url 'dashboard' %}" class="text-decoration-none text-muted">Inicio</a>
+      <span class="mx-2 text-body-tertiary">/</span>
+      <span class="fw-semibold text-body">Organizaciones Políticas</span>
+    </nav>
+    <h1 class="h2 fw-bold mb-1 text-primary-emphasis lh-1">Gestión de Organizaciones Políticas</h1>
+    <p class="text-muted small mb-0">Nombres, logos, colores y orden de visualización. Los cambios se reflejan inmediatamente en Revisión Humana y Resultados.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-shrink-0">
+    <a class="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-1.5 fw-semibold" href="{% url 'dashboard' %}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron-left"/></svg>
+      Volver
+    </a>
+  </div>
+</div>
+
+<!-- ========== KPIs ========== -->
+<div class="row g-3 g-lg-4 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card h-100 border-0 shadow-sm rounded-4 bg-white p-3 p-lg-4 d-flex align-items-center gap-3">
+      <div class="flex-shrink-0 d-grid place-items-center" style="width:48px;height:48px;border-radius:12px;background:#dbeafe;color:#1e40af">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-building-2"/></svg>
+      </div>
+      <div class="min-w-0">
+        <div class="text-uppercase text-muted small fw-semibold" style="font-size:.7rem;letter-spacing:.05em">Total</div>
+        <div class="h4 fw-800 mb-0 text-body-emphasis" style="font-weight:800;line-height:1.15">{{ kpi_total }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100 border-0 shadow-sm rounded-4 bg-white p-3 p-lg-4 d-flex align-items-center gap-3">
+      <div class="flex-shrink-0 d-grid place-items-center" style="width:48px;height:48px;border-radius:12px;background:#d1fae5;color:#065f46">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check-circle-2"/></svg>
+      </div>
+      <div class="min-w-0">
+        <div class="text-uppercase text-muted small fw-semibold" style="font-size:.7rem;letter-spacing:.05em">Activas</div>
+        <div class="h4 fw-800 mb-0 text-body-emphasis" style="font-weight:800;line-height:1.15">{{ kpi_activas }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100 border-0 shadow-sm rounded-4 bg-white p-3 p-lg-4 d-flex align-items-center gap-3">
+      <div class="flex-shrink-0 d-grid place-items-center" style="width:48px;height:48px;border-radius:12px;background:#ede9fe;color:#5b21b6">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-image"/></svg>
+      </div>
+      <div class="min-w-0">
+        <div class="text-uppercase text-muted small fw-semibold" style="font-size:.7rem;letter-spacing:.05em">Con logo</div>
+        <div class="h4 fw-800 mb-0 text-body-emphasis" style="font-weight:800;line-height:1.15">{{ kpi_con_logo }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100 border-0 shadow-sm rounded-4 bg-white p-3 p-lg-4 d-flex align-items-center gap-3">
+      <div class="flex-shrink-0 d-grid place-items-center" style="width:48px;height:48px;border-radius:12px;background:#fee2e2;color:#7f1d1d">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-inbox"/></svg>
+      </div>
+      <div class="min-w-0">
+        <div class="text-uppercase text-muted small fw-semibold" style="font-size:.7rem;letter-spacing:.05em">Sin logo</div>
+        <div class="h4 fw-800 mb-0 text-body-emphasis" style="font-weight:800;line-height:1.15">{{ kpi_sin_logo }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== BARRA GUARDAR ORDEN STICKY ========== -->
+<div class="card border shadow-sm rounded-4 mb-4 save-order-bar-card" style="position:sticky;top:72px;z-index:20">
+  <div class="card-body py-3 px-4 d-flex flex-wrap align-items-center justify-content-between gap-3" id="saveOrderBar">
+    <div class="d-flex align-items-center gap-2 small fw-semibold text-body-secondary" id="orderInfo">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-info"/></svg>
+      <span>Arrastra cada fila por el icono <b class="mx-1">⋮⋮</b> para reordenar la lista según el acta de escrutinio.</span>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+      <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-1.5 fw-semibold" id="btnResetOrder" title="Restablecer al orden guardado">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-rotate-ccw"/></svg>
+        Descartar
+      </button>
+      <button type="button" class="btn btn-primary btn-sm rounded-pill d-inline-flex align-items-center gap-1.5 fw-semibold" id="btnSaveOrder" disabled>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-save"/></svg>
+        <span>Guardar Orden</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TOOLBAR TÍTULO ========== -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+  <h2 class="h5 fw-bold mb-0 d-inline-flex align-items-center gap-2 text-body-emphasis">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-list-ordered"/></svg>
+    Lista de Partidos Políticos
+    <span class="badge text-bg-info rounded-pill ms-1">{{ orgs|length }} registros</span>
+  </h2>
+  <div class="text-muted small fw-medium">
+    Los cambios se reflejan inmediatamente en la sección <b>Revisión Humana</b>.
+  </div>
+</div>
+
+<!-- ========== LISTA ARRASTRABLE ========== -->
+<ul id="org-list-sortable" class="p-0 m-0 list-unstyled d-flex flex-column gap-2">
+  {% for org in orgs %}
+  <li class="org-row card card-body border-0 shadow-sm rounded-3 bg-white{% if not org.is_active %} inactive{% endif %}"
+      style="padding:12px 16px;display:grid;grid-template-columns:40px 56px 1fr 1.6fr 90px minmax(220px, auto);gap:12px;align-items:center;transition:all .18s cubic-bezier(.4,0,.2,1)"
+      data-org-pk="{{ org.pk }}"
+      data-original-sort="{{ org.sort_order }}">
+
+    <!-- Handle drag -->
+    <div class="org-drag-handle d-grid place-items-center text-body-tertiary rounded-2" style="height:40px;width:40px;cursor:grab" title="Arrastrar para reordenar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-grip-vertical"/></svg>
+    </div>
+
+    <!-- Fallback flechas (si Sortable undefined) -->
+    <div class="org-manual-move d-none flex-column gap-1">
+      <button type="button" class="btn btn-outline-secondary btn-xs rounded-pill" data-move="up" title="Subir">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron-up"/></svg>
+      </button>
+      <button type="button" class="btn btn-outline-secondary btn-xs rounded-pill" data-move="down" title="Bajar">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron-down"/></svg>
+      </button>
+    </div>
+
+    <!-- Preview logo -->
+    <div class="org-preview d-grid place-items-center border rounded-3 bg-body-tertiary overflow-hidden flex-shrink-0" id="preview-{{ org.pk }}" style="width:56px;height:56px">
+      {% with org.short_name|org_logo_url as logo %}
+      {% if logo %}
+      <img src="{{ logo }}" alt="{{ org.short_name }}" loading="lazy" width="48" height="48" style="width:100%;height:100%;object-fit:contain;padding:4px;background:white;display:block;max-width:none">
+      {% else %}
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-body-secondary"><use href="#i-building-2"/></svg>
+      {% endif %}
+      {% endwith %}
+    </div>
+
+    <!-- Código + Color -->
+    <div class="org-col min-w-0 d-flex flex-column gap-1">
+      <label class="text-uppercase fw-bold text-body-tertiary" style="font-size:10px;letter-spacing:.06em">Código</label>
+      <div class="d-flex align-items-center gap-2 color-wrap">
+        <input type="color"
+               class="color-input border rounded-2 p-0" style="width:36px;height:32px;cursor:pointer"
+               value="{% if org.color %}{{ org.color }}{% else %}#64748b{% endif %}"
+               data-field="color"
+               data-pk="{{ org.pk }}"
+               title="Color corporativo">
+        <input type="text"
+               class="form-control form-control-sm"
+               style="flex:1;font-family:ui-monospace,Menlo,monospace;font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase"
+               value="{{ org.code }}"
+               placeholder="CÓDIGO"
+               data-field="code"
+               data-pk="{{ org.pk }}">
+      </div>
+    </div>
+
+    <!-- Nombres + Scope -->
+    <div class="org-col min-w-0 d-flex flex-column gap-1">
+      <label class="text-uppercase fw-bold text-body-tertiary" style="font-size:10px;letter-spacing:.06em">Nombre corto · Nombre completo</label>
+      <input type="text"
+             class="form-control form-control-sm fw-bold" style="font-size:13px"
+             value="{{ org.short_name }}"
+             placeholder="Nombre corto"
+             data-field="short_name"
+             data-pk="{{ org.pk }}">
+      <input type="text"
+             class="form-control form-control-sm" style="font-size:12px;color:#334155"
+             value="{{ org.full_name }}"
+             placeholder="Nombre completo del partido"
+             data-field="full_name"
+             data-pk="{{ org.pk }}">
+    </div>
+
+    <!-- Scope + activo -->
+    <div class="org-col min-w-0 d-flex flex-column gap-1">
+      <label class="text-uppercase fw-bold text-body-tertiary" style="font-size:10px;letter-spacing:.06em">Ámbito · Estado</label>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <select class="form-select form-select-sm" data-field="scope" data-pk="{{ org.pk }}" style="flex:1;min-width:0">
+          <option value="regional"  {% if org.scope == "regional" %}selected{% endif %}>Regional</option>
+          <option value="provincial"{% if org.scope == "provincial" %}selected{% endif %}>Provincial</option>
+          <option value="distrital" {% if org.scope == "distrital" %}selected{% endif %}>Distrital</option>
+          <option value="nacional"  {% if org.scope == "nacional" %}selected{% endif %}>Nacional</option>
+          <option value="mixto"     {% if org.scope == "mixto" %}selected{% endif %}>Mixto</option>
+        </select>
+        <span class="status-toggle d-inline-flex align-items-center gap-1 fw-bold rounded-pill py-1 px-2 {% if org.is_active %}on{% else %}off{% endif %}" style="font-size:10.5px;cursor:pointer;user-select:none"
+              data-field="is_active"
+              data-pk="{{ org.pk }}"
+              data-value="{% if org.is_active %}1{% else %}0{% endif %}"
+              title="Click para activar/desactivar">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <use href="{% if org.is_active %}#i-check-circle-2{% else %}#i-alert-circle{% endif %}"/>
+          </svg>
+          <span class="st-label">{% if org.is_active %}ACTIVA{% else %}INACTIVA{% endif %}</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Acciones: subir logo / guardar fila / eliminar logo -->
+    <div class="org-actions d-flex align-items-center gap-2 flex-wrap justify-content-end">
+      <div class="file-wrap position-relative d-inline-flex align-items-center">
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-1 fw-semibold" title="Subir logo personalizado (PNG/JPEG/WEBP, máx 2MB)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-upload"/></svg>
+          <span class="uplabel" id="uplabel-{{ org.pk }}">Subir Logo</span>
+        </button>
+        <input type="file" accept="image/png,image/jpeg,image/webp"
+               data-pk="{{ org.pk }}"
+               class="logo-file-input position-absolute top-0 start-0 w-100 h-100 opacity-0"
+               style="cursor:pointer"
+               aria-label="Subir logo organización {{ org.short_name }}">
+      </div>
+
+      {% with org.short_name|org_logo_url as logo %}
+      {% if logo %}
+      <button type="button" class="btn btn-outline-danger btn-sm rounded-pill d-inline-flex align-items-center gap-1 fw-semibold btn-remove-logo"
+              data-pk="{{ org.pk }}"
+              title="Eliminar logo actual, usar icono por defecto">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-trash-2"/></svg>
+        Logo
+      </button>
+      {% endif %}
+      {% endwith %}
+
+      <button type="button" class="btn btn-success btn-sm rounded-pill d-inline-flex align-items-center gap-1 fw-semibold btn-save-row"
+              data-pk="{{ org.pk }}"
+              disabled
+              title="Guardar cambios de esta fila">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-save"/></svg>
+        Fila
+      </button>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="mt-5 p-4 border-top border-dashed small text-muted" style="line-height:1.5">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><use href="#i-shield-check"/></svg>
+  <b>Nota:</b> Este módulo solo está disponible para usuarios con rol <b>SUPER_ADMIN</b>. Los logos se almacenan en <code>/media/org_logos/</code> y se optimizan para mostrarse a 28×28px en Revisión Humana sin desalineaciones. El orden modificado afecta directamente cómo se visualizan los partidos en todas las actas y reportes.
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" crossorigin="anonymous"></script>
+<script>
+(function(){
+  "use strict";
+  // ====== CSRF helper ======
+  function getCsrfToken(){
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+  function csrfFetch(url, opts){
+    opts = opts || {};
+    opts.headers = opts.headers || {};
+    opts.headers["X-CSRFToken"] = getCsrfToken();
+    if (opts.body && !(opts.body instanceof FormData) && typeof opts.body !== "string") {
+      opts.body = JSON.stringify(opts.body);
+      opts.headers["Content-Type"] = "application/json";
+    }
+    opts.credentials = opts.credentials || "same-origin";
+    return fetch(url, opts);
+  }
+
+  // ====== Toast ======
+  function toast(msg, type){
+    var root = document.getElementById("toast-root");
+    if (!root) return alert(msg);
+    type = type || "info";
+    var t = document.createElement("div");
+    t.className = "toast " + type;
+    var iconId = type === "success" ? "i-check-circle-2" : type === "error" ? "i-x-octagon" : type === "warn" ? "i-alert-triangle" : "i-info";
+    t.innerHTML = '<svg><use href="'+iconId+'"/></svg><span class="txt"></span>';
+    t.querySelector(".txt").textContent = msg;
+    root.appendChild(t);
+    requestAnimationFrame(function(){ t.classList.add("show"); });
+    setTimeout(function(){
+      t.classList.remove("show");
+      setTimeout(function(){ t.remove(); }, 400);
+    }, 3800);
+  }
+
+  // ====== Estado: dirty rows + dirty order ======
+  var dirtyRows = new Set();
+  var orderDirty = false;
+
+  function updateSaveOrderBar(){
+    var wrap = document.querySelector(".save-order-bar-card");
+    var bar = document.getElementById("saveOrderBar");
+    var info = document.getElementById("orderInfo");
+    var btn = document.getElementById("btnSaveOrder");
+    if (!wrap || !bar || !info || !btn) return;
+    if (orderDirty) {
+      wrap.classList.add("border-warning");
+      wrap.style.background = "linear-gradient(90deg, #fff7ed, #ffffff)";
+      wrap.style.boxShadow = "0 4px 14px -4px rgba(245,158,11,.35)";
+      info.classList.remove("text-body-secondary");
+      info.classList.add("text-warning-emphasis");
+      info.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert-triangle"/></svg> <span>Orden modificado. Presiona <b>Guardar Orden</b> para persistir los cambios.</span>';
+      btn.disabled = false;
+    } else {
+      wrap.classList.remove("border-warning");
+      wrap.style.background = "";
+      wrap.style.boxShadow = "";
+      info.classList.add("text-body-secondary");
+      info.classList.remove("text-warning-emphasis");
+      info.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-info"/></svg> <span>Arrastra cada fila por el icono <b class="mx-1">⋮⋮</b> para reordenar la lista según el acta de escrutinio.</span>';
+      btn.disabled = true;
+    }
+  }
+
+  function markRowDirty(pk){
+    dirtyRows.add(pk);
+    var btn = document.querySelector('.btn-save-row[data-pk="'+pk+'"]');
+    if (btn) btn.disabled = false;
+    document.querySelectorAll('#org-list-sortable .org-row[data-org-pk="'+pk+'"] input, #org-list-sortable .org-row[data-org-pk="'+pk+'"] select').forEach(function(el){
+      el.classList.add("dirty");
+      el.style.background = "#fffbeb";
+      el.style.borderColor = "#f59e0b";
+    });
+  }
+  function markRowClean(pk){
+    dirtyRows.delete(pk);
+    var btn = document.querySelector('.btn-save-row[data-pk="'+pk+'"]');
+    if (btn) btn.disabled = true;
+    document.querySelectorAll('#org-list-sortable .org-row[data-org-pk="'+pk+'"] input, #org-list-sortable .org-row[data-org-pk="'+pk+'"] select').forEach(function(el){
+      el.classList.remove("dirty");
+      el.style.background = "";
+      el.style.borderColor = "";
+    });
+  }
+
+  // ====== Edición inline: change → dirty ======
+  document.querySelectorAll('#org-list-sortable [data-field]').forEach(function(el){
+    var evType = el.classList.contains("status-toggle") ? "click" : (el.tagName === "SELECT" || el.type === "color" ? "change" : "input");
+    el.addEventListener(evType, function(){
+      var pk = el.getAttribute("data-pk");
+      markRowDirty(pk);
+    });
+  });
+
+  // ====== Status toggle (click) ======
+  document.querySelectorAll(".status-toggle").forEach(function(t){
+    t.addEventListener("click", function(){
+      var curr = t.getAttribute("data-value") === "1";
+      var next = !curr;
+      t.setAttribute("data-value", next ? "1" : "0");
+      t.classList.toggle("on", next);
+      t.classList.toggle("off", !next);
+      var svg = t.querySelector("svg use");
+      if (svg) svg.setAttribute("href", next ? "#i-check-circle-2" : "#i-alert-circle");
+      var lab = t.querySelector(".st-label");
+      if (lab) lab.textContent = next ? "ACTIVA" : "INACTIVA";
+      var pk = t.getAttribute("data-pk");
+      markRowDirty(pk);
+    });
+  });
+
+  // ====== Guardar una fila ======
+  function collectRowData(pk){
+    var row = document.querySelector('.org-row[data-org-pk="'+pk+'"]');
+    if (!row) return null;
+    var data = {};
+    row.querySelectorAll("[data-field]").forEach(function(el){
+      var f = el.getAttribute("data-field");
+      if (el.classList.contains("status-toggle")) {
+        data[f] = el.getAttribute("data-value") === "1";
+      } else if (el.tagName === "SELECT") {
+        data[f] = el.value;
+      } else if (el.type === "color") {
+        data[f] = el.value;
+      } else {
+        data[f] = el.value.trim();
+      }
+    });
+    return data;
+  }
+
+  document.querySelectorAll(".btn-save-row").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var pk = btn.getAttribute("data-pk");
+      var data = collectRowData(pk);
+      if (!data) return;
+      btn.disabled = true;
+      var oldText = btn.innerHTML;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><use href="#i-loader"/></svg> Guardando...';
+      csrfFetch("{% url 'org_edit_api' 0 %}".replace("0", pk), { method: "POST", body: data })
+        .then(function(r){ return r.json().then(function(j){ return [r.ok, j]; }); })
+        .then(function(res){
+          var ok = res[0]; var j = res[1];
+          if (ok && j.ok) {
+            markRowClean(pk);
+            toast("Organización actualizada correctamente", "success");
+          } else {
+            markRowDirty(pk);
+            toast("Error: " + (j.error || "No se pudo guardar"), "error");
+          }
+        })
+        .catch(function(e){
+          markRowDirty(pk);
+          toast("Error de conexión: " + e.message, "error");
+        })
+        .finally(function(){
+          btn.innerHTML = oldText;
+        });
+    });
+  });
+
+  // ====== Subir logo ======
+  document.querySelectorAll(".logo-file-input").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      if (!inp.files || !inp.files.length) return;
+      var pk = inp.getAttribute("data-pk");
+      var file = inp.files[0];
+      if (file.size > 2 * 1024 * 1024) {
+        toast("Archivo excede el límite de 2MB", "warn");
+        inp.value = "";
+        return;
+      }
+      var label = document.getElementById("uplabel-"+pk);
+      var labelPrev = label ? label.textContent : "Subir Logo";
+      if (label) label.textContent = "Subiendo...";
+
+      var fd = new FormData();
+      fd.append("file", file);
+      csrfFetch("{% url 'org_upload_logo_api' 0 %}".replace("0", pk), { method: "POST", body: fd })
+        .then(function(r){ return r.json().then(function(j){ return [r.ok, j]; }); })
+        .then(function(res){
+          var ok = res[0]; var j = res[1];
+          if (ok && j.ok) {
+            var preview = document.getElementById("preview-"+pk);
+            if (preview && j.url) {
+              preview.innerHTML = '<img src="'+j.url+'" alt="logo" loading="lazy" width="48" height="48" style="width:100%;height:100%;object-fit:contain;padding:4px;background:white;display:block;max-width:none">';
+            }
+            toast("Logo actualizado correctamente. Refresca Revisión Humana para ver los cambios.", "success");
+            setTimeout(function(){ location.reload(); }, 1200);
+          } else {
+            toast("Error subida: " + (j.error || "Falló"), "error");
+          }
+        })
+        .catch(function(e){ toast("Error conexión: "+e.message, "error"); })
+        .finally(function(){
+          inp.value = "";
+          if (label) label.textContent = labelPrev;
+        });
+    });
+  });
+
+  // ====== Eliminar logo ======
+  document.querySelectorAll(".btn-remove-logo").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var pk = btn.getAttribute("data-pk");
+      if (!confirm("¿Eliminar logo personalizado de esta organización? Volverá al icono por defecto.")) return;
+      csrfFetch("{% url 'org_delete_logo_api' 0 %}".replace("0", pk), { method: "POST", body: {} })
+        .then(function(r){ return r.json().then(function(j){ return [r.ok, j]; }); })
+        .then(function(res){
+          var ok = res[0]; var j = res[1];
+          if (ok && j.ok) {
+            var preview = document.getElementById("preview-"+pk);
+            if (preview) { preview.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-body-secondary"><use href="#i-building-2"/></svg>'; }
+            btn.style.display = "none";
+            toast("Logo eliminado", "success");
+            setTimeout(function(){ location.reload(); }, 900);
+          } else {
+            toast("Error: " + (j.error || "Falló"), "error");
+          }
+        })
+        .catch(function(e){ toast("Error: "+e.message, "error"); });
+    });
+  });
+
+  // ====== Sortable drag-drop ======
+  var listEl = document.getElementById("org-list-sortable");
+  if (window.Sortable && listEl) {
+    new Sortable(listEl, {
+      animation: 120,
+      handle: ".org-drag-handle",
+      ghostClass: "sortable-ghost",
+      chosenClass: "sortable-chosen",
+      forceFallback: true,
+      fallbackClass: "sortable-fallback",
+      onEnd: function(){ orderDirty = true; updateSaveOrderBar(); }
+    });
+  } else {
+    // Fallback: mostrar flechas manuales
+    if (listEl) {
+      listEl.classList.add("sortable-fallback");
+      document.querySelectorAll(".org-manual-move").forEach(function(m){ m.classList.remove("d-none"); });
+      document.querySelectorAll(".org-drag-handle").forEach(function(h){ h.classList.add("d-none"); });
+    }
+    document.querySelectorAll(".org-manual-move button").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var row = btn.closest(".org-row");
+        if (!row) return;
+        var dir = btn.getAttribute("data-move");
+        if (dir === "up") {
+          var prev = row.previousElementSibling;
+          if (prev) row.parentNode.insertBefore(row, prev);
+        } else {
+          var next = row.nextElementSibling;
+          if (next && next.nextElementSibling) row.parentNode.insertBefore(row, next.nextElementSibling);
+          else if (next) row.parentNode.appendChild(row);
+        }
+        orderDirty = true; updateSaveOrderBar();
+      });
+    });
+  }
+
+  // ====== Guardar orden global ======
+  document.getElementById("btnSaveOrder").addEventListener("click", function(){
+    if (!orderDirty) return;
+    var order = Array.from(document.querySelectorAll("#org-list-sortable .org-row"))
+      .map(function(r){ return parseInt(r.getAttribute("data-org-pk"), 10); });
+    var btn = document.getElementById("btnSaveOrder");
+    btn.disabled = true;
+    var old = btn.innerHTML;
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><use href="#i-loader"/></svg> Guardando...';
+    csrfFetch("{% url 'org_reorder_api' %}", { method: "POST", body: { order: order } })
+      .then(function(r){ return r.json().then(function(j){ return [r.ok, j]; }); })
+      .then(function(res){
+        var ok = res[0]; var j = res[1];
+        if (ok && j.ok) {
+          orderDirty = false;
+          document.querySelectorAll("#org-list-sortable .org-row").forEach(function(r, idx){
+            r.setAttribute("data-original-sort", idx);
+          });
+          updateSaveOrderBar();
+          toast("Orden guardado (" + j.reordered + " organizaciones). Refresca Revisión Humana para confirmar.", "success");
+        } else {
+          toast("Error guardando orden: " + (j.error || "Falló"), "error");
+        }
+      })
+      .catch(function(e){ toast("Error conexión: "+e.message, "error"); })
+      .finally(function(){ btn.innerHTML = old; btn.disabled = orderDirty ? false : true; });
+  });
+
+  // ====== Descartar cambios orden ======
+  document.getElementById("btnResetOrder").addEventListener("click", function(){
+    if (!orderDirty) return;
+    if (!confirm("¿Restablecer el orden al último guardado? Los cambios de arrastre sin guardar se perderán.")) return;
+    location.reload();
+  });
+
+  // ====== Confirm leaving con dirty ======
+  window.addEventListener("beforeunload", function(e){
+    if (orderDirty || dirtyRows.size) {
+      e.preventDefault();
+      e.returnValue = "Tienes cambios sin guardar (orden o filas). ¿Seguro que deseas salir?";
+      return e.returnValue;
+    }
+  });
+
+  // ====== Shortcut Ctrl/Cmd+S = guardar fila activa o orden ======
+  document.addEventListener("keydown", function(e){
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      if (dirtyRows.size > 0) {
+        var first = dirtyRows.values().next().value;
+        var btn = document.querySelector('.btn-save-row[data-pk="'+first+'"]');
+        if (btn) btn.click();
+      } else if (orderDirty) {
+        document.getElementById("btnSaveOrder").click();
+      }
+    }
+  });
+})();
+</script>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+.sortable-chosen { box-shadow: 0 10px 28px -10px rgba(15,58,125,.45) !important; border-color: #0F3A7D !important; background: #eff6ff !important; cursor: grabbing !important; z-index: 9999 !important; }
+.sortable-ghost { opacity: .4 !important; background: #e0e7ff !important; border-color: #a5b4fc !important; }
+.org-row.inactive { opacity: .62; background: linear-gradient(90deg, #fafafa, #fff) !important; }
+.status-toggle.on  { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; }
+.status-toggle.off { background:#fee2e2; color:#7f1d1d; border:1px solid #fecaca; }
+.save-order-bar-card.dirty-visual { border-color:#D4AF37 !important; background:linear-gradient(90deg,#fff7ed,#ffffff) !important; }
+@media (max-width: 991.98px) {
+  .org-row {
+    grid-template-columns: 32px 44px 1fr !important;
+    grid-template-rows: auto auto auto auto !important;
+  }
+  .org-row > *:nth-child(4) { grid-column: 2 / -1 !important; }
+  .org-row > *:nth-child(5) { grid-column: 2 / -1 !important; }
+  .org-row > *:nth-child(6) { grid-column: 1 / -1 !important; }
+  .org-preview { width: 44px !important; height: 44px !important; }
+  .org-drag-handle { width: 32px !important; height: 32px !important; }
+}
+</style>
+{% endblock %}

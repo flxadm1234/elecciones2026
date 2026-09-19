@@ -1,0 +1,395 @@
+/* =========================================================
+   app.css — Elecciones 2026 · Whadox
+   Bootstrap 5 overrides · Navy #0F3A7D + Gold #D4AF37
+   Sidebar layout · Toast API · Acta Viewer Modal
+   Sin tokens Pico. Sin Índigo/Violeta.
+   ========================================================= */
+
+/* ---------- 1. Layout: sidebar fixed desktop + main offset ---------- */
+@media (min-width: 992px) {
+  .main-wrapper {
+    margin-left: 272px;
+    min-height: 100vh;
+    width: calc(100% - 272px);
+  }
+}
+
+@media (max-width: 991.98px) {
+  .main-wrapper {
+    margin-left: 0;
+    width: 100%;
+    min-height: 100vh;
+  }
+}
+
+/* ---------- 2. Sidebar (Bootstrap offcanvas + fixed) ---------- */
+.app-sidebar::-webkit-scrollbar { width: 6px; }
+.app-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.18);
+  border-radius: 9999px;
+}
+.app-sidebar::-webkit-scrollbar-track { background: transparent; }
+
+.sidebar-nav .sidebar-link:hover,
+.sidebar-nav .sidebar-link:focus-visible {
+  background: rgba(255,255,255,0.08) !important;
+  color: #fff !important;
+  text-decoration: none !important;
+  outline: none;
+}
+.sidebar-nav .sidebar-link.is-active:hover {
+  background: rgba(255,255,255,0.14) !important;
+}
+.sidebar-nav .sidebar-link--urgent:hover {
+  background: rgba(220,38,38,0.25) !important;
+}
+.sidebar-nav .sidebar-link--danger:hover {
+  background: rgba(220,38,38,0.18) !important;
+  color: #fecaca !important;
+  border-left-color: rgba(220,38,38,0.7) !important;
+}
+
+/* Offcanvas backdrop fine-tune (si no hay backdrop por defecto o queremos Navy tono) */
+.offcanvas-backdrop.show { opacity: .55; }
+
+/* ---------- 3. Utilities que faltan en Bootstrap 5.3 ---------- */
+.fs-xs { font-size: .7rem !important; }
+.fs-sm { font-size: .875rem !important; }
+.lh-1-2 { line-height: 1.2 !important; }
+.lh-1-6 { line-height: 1.6 !important; }
+.py-2-5 { padding-top: .625rem; padding-bottom: .625rem; }
+.border-dashed { border-style: dashed !important; }
+.text-shadow-sm { text-shadow: 0 1px 2px rgba(0,0,0,.15); }
+
+.rounded-4 { border-radius: 1rem !important; }
+.rounded-5 { border-radius: 1.25rem !important; }
+
+/* Helpful helpers */
+.break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.z-1 { z-index: 1 !important; }
+
+/* ---------- 4. Acta Viewer Modal (imagen zoom / rotación) ---------- */
+#actaViewerModal {
+  position: fixed;
+  inset: 0;
+  z-index: 1080;
+  display: none;
+  background: rgba(2, 6, 23, 0.82);
+  backdrop-filter: blur(4px);
+  padding: 1.25rem;
+}
+#actaViewerModal.open { display: block; }
+.acta-viewer-dialog {
+  position: relative;
+  max-width: 1320px;
+  height: calc(100vh - 2.5rem);
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px -10px rgba(0,0,0,0.5);
+}
+.acta-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--bs-border-color, #e2e8f0);
+  background: linear-gradient(180deg, #f8fafc, #ffffff);
+}
+.acta-viewer-title {
+  font-weight: 700;
+  color: #0F3A7D;
+  font-size: 1rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.acta-viewer-meta {
+  font-size: .8rem;
+  color: #64748b;
+  margin: .15rem 0 0 0;
+}
+.acta-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  flex-wrap: wrap;
+}
+.acta-viewer-toolbar .btn {
+  --bs-btn-padding-y: .35rem;
+  --bs-btn-padding-x: .55rem;
+  --bs-btn-font-size: .8rem;
+  --bs-btn-border-radius: .5rem;
+}
+.acta-viewer-zoom-label {
+  font-size: .72rem;
+  color: #475569;
+  padding: 0 .5rem;
+  min-width: 124px;
+  text-align: right;
+  font-weight: 600;
+}
+#actaViewerStage {
+  flex: 1 1 auto;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(15,58,125,0.04), transparent 40%),
+    repeating-conic-gradient(#f1f5f9 0% 25%, #ffffff 0% 50%) 50% / 24px 24px;
+  overflow: auto;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1.25rem;
+}
+#actaViewerImg {
+  max-width: 100%;
+  transform-origin: center center;
+  transition: transform .12s ease-out;
+  border-radius: 6px;
+  box-shadow: 0 10px 40px -5px rgba(15,23,42,0.25);
+  background: #fff;
+  cursor: grab;
+}
+#actaViewerImg:active { cursor: grabbing; }
+.acta-viewer-footer {
+  padding: .8rem 1.25rem;
+  border-top: 1px solid var(--bs-border-color, #e2e8f0);
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: .82rem;
+  color: #475569;
+}
+
+/* ---------- 5. Toast API: root + tarjetas ---------- */
+#toast-root {
+  position: fixed;
+  right: 1.25rem;
+  top: 5.25rem;
+  z-index: 1090;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  max-width: 380px;
+  width: min(380px, calc(100vw - 2.5rem));
+  pointer-events: none;
+}
+#toast-root .toast {
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateX(20px) translateY(-4px);
+  transition: opacity .25s ease-out, transform .25s ease-out;
+  padding: .85rem 1rem .85rem .9rem;
+  border-radius: .8rem;
+  color: #fff;
+  font-size: .88rem;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: .7rem;
+  box-shadow: 0 14px 30px -8px rgba(15,23,42,0.22), 0 4px 8px -3px rgba(15,23,42,0.08);
+  border-left: 4px solid rgba(255,255,255,0.4);
+  background: #334155;
+}
+#toast-root .toast.show {
+  opacity: 1;
+  transform: translateX(0) translateY(0);
+}
+#toast-root .toast svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+#toast-root .toast.success { background: linear-gradient(135deg, #059669, #047857); border-left-color: #a7f3d0; }
+#toast-root .toast.error   { background: linear-gradient(135deg, #DC2626, #b91c1c); border-left-color: #fecaca; }
+#toast-root .toast.warn    { background: linear-gradient(135deg, #D4AF37, #b89628); color: #0F3A7D; border-left-color: rgba(15,58,125,0.45); }
+#toast-root .toast.warn svg { color: #0F3A7D; }
+#toast-root .toast.info    { background: linear-gradient(135deg, #0F3A7D, #08244A); border-left-color: #bfdbfe; }
+
+@media (max-width: 575.98px) {
+  #toast-root { right: .75rem; left: .75rem; top: auto; bottom: 1rem; width: auto; max-width: none; }
+}
+
+/* ---------- 6. Skip link / focus visible (compatibilidad) ---------- */
+a.skip-link:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid #0F3A7D !important;
+  outline-offset: 2px !important;
+  border-radius: 6px;
+}
+
+/* ---------- 7. Tablas uniformes ---------- */
+.table-pro thead th {
+  border-bottom-width: 1px;
+  letter-spacing: .03em;
+}
+.table-pro tbody td {
+  border-top-color: rgba(148,163,184,.15);
+}
+.table-pro tbody tr:hover {
+  background-color: rgba(15,58,125,0.025);
+}
+
+/* ---------- 8. Pagination y filtros (clases legacy re-map) ---------- */
+.pagination-pro { display: flex; gap: .35rem; flex-wrap: wrap; list-style: none; padding: 0; }
+.pagination-pro .page-link-pro {
+  min-width: 36px; height: 36px; padding: 0 .65rem;
+  border-radius: .55rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  text-decoration: none;
+  color: #0F3A7D;
+  font-weight: 600;
+  font-size: .85rem;
+  transition: all .15s ease;
+}
+.pagination-pro .page-link-pro:hover { background: rgba(15,58,125,0.06); border-color: #cbd5e1; }
+.pagination-pro .page-link-pro.active {
+  background: #0F3A7D; color: #fff; border-color: #0F3A7D;
+  box-shadow: 0 4px 12px -4px rgba(15,58,125,0.45);
+}
+.pagination-pro .page-link-pro.disabled { opacity: .45; pointer-events: none; }
+
+/* ---------- 9. Filtros / form cards ---------- */
+.filter-card {
+  background: #fff;
+  border: 1px solid rgba(148,163,184,.22);
+  border-radius: 1rem;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px 0 rgba(15,23,42,0.04);
+}
+.filter-card label.form-label { font-weight: 600; color: #334155; font-size: .82rem; }
+.filter-help {
+  font-size: .78rem;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+/* ---------- 10. Organizaciones logos re-order targets (Drag & drop) ---------- */
+.org-row-draggable {
+  transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+.org-row-draggable.sortable-chosen {
+  background: rgba(212,175,55,0.08) !important;
+  box-shadow: 0 6px 18px -6px rgba(212,175,55,0.45);
+  transform: scale(1.005);
+}
+.org-row-draggable.sortable-ghost {
+  opacity: .45;
+  background: #f1f5f9;
+}
+.org-logo-preview {
+  width: 52px; height: 52px;
+  border-radius: .75rem;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid rgba(148,163,184,.25);
+  padding: .3rem;
+}
+
+/* ---------- 11. Badges legacy → uniforme con Bootstrap ---------- */
+.badge--neutral {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+.badge--pill { border-radius: 9999px; }
+
+/* ---------- 12. Progress bar wrapper ---------- */
+.progress-bar-wrap {
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0F3A7D, #D4AF37);
+  border-radius: 9999px;
+  transition: width .4s ease-out;
+}
+
+/* ---------- 13. Split review (revisión humana) ---------- */
+.review-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 1.25rem;
+}
+@media (max-width: 1099.98px) {
+  .review-split { grid-template-columns: 1fr; }
+}
+.review-split .split-pane {
+  background: #fff;
+  border: 1px solid rgba(148,163,184,.22);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.split-pane-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(148,163,184,.18);
+  background: linear-gradient(180deg, #f8fafc, #ffffff);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.split-pane-body {
+  padding: 1.25rem;
+}
+
+/* ---------- 14. Nav tabs (pico → Bootstrap-like, usadas en filtros) ---------- */
+.nav-tabs-pro {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid rgba(148,163,184,.18);
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+.nav-tabs-pro button {
+  background: transparent;
+  border: none;
+  padding: .85rem 1.1rem;
+  font-weight: 600;
+  color: #475569;
+  font-size: .88rem;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+  border-radius: 0;
+}
+.nav-tabs-pro button:hover { color: #0F3A7D; background: rgba(15,58,125,0.03); }
+.nav-tabs-pro button.active {
+  color: #0F3A7D;
+  border-bottom-color: #D4AF37;
+}
+
+/* ---------- 15. Inputs focus ring uniforme ---------- */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: #0F3A7D !important;
+  box-shadow: 0 0 0 3px rgba(15,58,125,0.18) !important;
+}
+
+/* ---------- 16. Responsive text: KPI grandes no se rompen ---------- */
+@media (max-width: 575.98px) {
+  .kpi-value.display-5 { font-size: calc(1.425rem + 1.5vw) !important; }
+  .page-title.h2 { font-size: calc(1.1rem + .6vw) !important; }
+}

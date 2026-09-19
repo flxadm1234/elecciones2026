@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+{% load confidence_tags %}
+
+{% block title %}Resultados Electorales · Elecciones 2026{% endblock %}
+
+{% block head_extra %}
+<style>
+.org-cell { display: flex; align-items: center; gap: 12px; }
+.onpe-logo {
+  width: 40px; height: 40px;
+  object-fit: contain;
+  background: white;
+  border: 1px solid var(--bs-border-color, #e2e8f0);
+  border-radius: .55rem;
+  padding: 4px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px -2px rgba(15,23,42,.15);
+  display: block;
+  max-width: none !important;
+}
+.onpe-table tbody td { vertical-align: middle; }
+.org-logo {
+  width: 44px; height: 44px;
+  display: inline-grid; place-items: center;
+  background: linear-gradient(135deg, rgba(15,58,125,0.05), #ffffff);
+  border: 1px solid var(--bs-border-color, #e2e8f0);
+  border-radius: .55rem;
+  font-weight: 900;
+  font-size: 16px;
+  color: #0F3A7D;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px -2px rgba(15,23,42,.12);
+}
+.org-name { font-weight: 700; color: var(--bs-emphasis-color, #1e293b); font-size: .88rem; display: inline-block; line-height: 1.25; }
+.leader-row .org-name { color: #065f46; }
+.text-right { text-align: right !important; }
+.votos-num { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-weight: 800; font-size: 1rem; color: #0F3A7D; }
+.total-row td { background: rgba(15,58,125,0.03); }
+.total-emitted td { background: rgba(212,175,55,0.08); font-weight: 700; }
+.onpe-shell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 1.5rem;
+}
+@media (max-width: 991.98px) {
+  .onpe-shell { grid-template-columns: 1fr; }
+}
+.onpe-sidebar {
+  background: #fff;
+  border: 1px solid rgba(148,163,184,.2);
+  border-radius: 1rem;
+  padding: 1.1rem;
+  box-shadow: 0 1px 3px 0 rgba(15,23,42,0.04);
+  height: fit-content;
+  position: sticky;
+  top: 5.5rem;
+}
+.onpe-cargo-group + .onpe-cargo-group { margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px dashed rgba(148,163,184,.25); }
+.onpe-cargo-title {
+  font-weight: 800;
+  color: #0F3A7D;
+  font-size: .78rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-bottom: .6rem;
+  padding-left: .35rem;
+}
+.onpe-cargo-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .2rem; }
+.onpe-subnav {
+  display: block;
+  padding: .55rem .75rem;
+  border-radius: .6rem;
+  color: #475569;
+  text-decoration: none;
+  font-size: .85rem;
+  font-weight: 600;
+  transition: all .15s ease;
+}
+.onpe-subnav:hover { background: rgba(15,58,125,0.06); color: #0F3A7D; text-decoration: none; }
+.onpe-subnav.active {
+  background: linear-gradient(90deg, rgba(15,58,125,0.12), rgba(212,175,55,0.08));
+  color: #0F3A7D;
+  font-weight: 700;
+  border-left: 3px solid #D4AF37;
+}
+.onpe-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+@media (max-width: 900px) { .onpe-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+.onpe-kpi-grid .kpi-card {
+  background: linear-gradient(135deg,#ffffff,#f8fafc);
+  border: 1px solid rgba(148,163,184,.2);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 1px 3px 0 rgba(15,23,42,0.04);
+}
+.onpe-kpi-grid .kpi-num { font-size: 1.7rem; font-weight: 800; color: #0F3A7D; line-height: 1.1; }
+.onpe-kpi-grid .kpi-pct { color: #D4AF37; font-size: 1rem; font-weight: 700; margin-left: .15rem; }
+.onpe-kpi-grid .kpi-label { font-size: .75rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: .25rem; }
+.onpe-date { font-size: .8rem; color: #64748b; margin-bottom: 1.25rem; font-weight: 500; padding-left: .15rem; }
+</style>
+{% endblock %}
+
+{% block body %}
+
+<div class="d-flex flex-wrap flex-md-nowrap align-items-md-center justify-content-between gap-3 mb-4">
+  <div>
+    <h1 class="h2 fw-bold mb-1 text-primary-emphasis lh-1">
+      Resultados Electorales
+      <span class="badge rounded-pill text-bg-info ms-2 align-middle" style="font-size:.75rem;padding:.3rem .65rem">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1 mb-0.5"><use href="#i-bar-chart-2"/></svg>
+        ONPE Style
+      </span>
+    </h1>
+    <p class="text-muted small mb-0">Vista agregada de resultados por cargo electoral y &aacute;mbito geogr&aacute;fico.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-shrink-0">
+    <a class="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-1.5 fw-semibold" href="{% url 'dashboard' %}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron-left"/></svg>
+      Volver al Dashboard
+    </a>
+  </div>
+</div>
+
+<form method="get" class="filter-card" id="filtrosUbicacionForm" aria-label="Filtros de ubicaci&oacute;n geogr&aacute;fica">
+  <input type="hidden" name="cargo" value="{{ cargo_sel }}">
+  <div class="row g-3 align-items-end">
+    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+      <label for="selDepto" class="form-label mb-2">Regi&oacute;n:</label>
+      <select id="selDepto" name="depto" class="form-select" onchange="document.getElementById('selProv').value='';document.getElementById('selDist').value='';this.form.submit();" aria-label="Seleccionar regi&oacute;n o departamento">
+        <option value="">-- TODOS --</option>
+        {% for d in deptos %}
+        <option value="{{ d }}" {% if d == depto_sel %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+      <label for="selProv" class="form-label mb-2">Provincia:</label>
+      <select id="selProv" name="prov" class="form-select" onchange="document.getElementById('selDist').value='';this.form.submit();" aria-label="Seleccionar provincia">
+        <option value="">-- TODOS --</option>
+        {% for p in provincias %}
+        <option value="{{ p }}" {% if p == prov_sel %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+      <label for="selDist" class="form-label mb-2">Distrito:</label>
+      <select id="selDist" name="dist" class="form-select" onchange="this.form.submit();" aria-label="Seleccionar distrito">
+        <option value="">-- TODOS --</option>
+        {% for d in distritos %}
+        <option value="{{ d }}" {% if d == dist_sel %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-sm-6 col-md-12 col-lg-3 d-flex align-items-end">
+      <div class="small text-muted lh-1.6 w-100 p-2 rounded-2 bg-light border">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-info me-1 mb-0.5"><use href="#i-info"/></svg>
+        Los filtros se aplican autom&aacute;ticamente al cambiar.
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- ============== KPI 4 TARJETAS ============== -->
+<div class="onpe-kpi-grid" role="region" aria-label="Indicadores clave de progreso">
+  <div class="kpi-card">
+    <div class="kpi-num">{{ kpi_actas_procesadas }} <span class="kpi-pct">({{ kpi_actas_procesadas_pct }} %)</span></div>
+    <div class="kpi-label">Actas procesadas</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-num">{{ kpi_actas_contabilizadas }} <span class="kpi-pct">({{ kpi_actas_contabilizadas_pct }} %)</span></div>
+    <div class="kpi-label">Actas contabilizadas</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-num">{{ kpi_electores }}</div>
+    <div class="kpi-label">Electores h&aacute;biles</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-num">{{ kpi_participacion }} %</div>
+    <div class="kpi-label">Participaci&oacute;n ciudadana</div>
+  </div>
+</div>
+<div class="onpe-date mb-4 small" role="status" aria-live="polite">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary me-1 mb-0.5"><use href="#i-calendar"/></svg>
+  Fecha de actualizaci&oacute;n: <b>{{ fecha_actualizacion }}</b>
+</div>
+
+<!-- ============== LAYOUT SIDEBAR CARGOS + CONTENIDO ============== -->
+<div class="onpe-shell">
+  <aside class="onpe-sidebar" aria-label="Navegaci&oacute;n por cargo electoral">
+    {% for amb in ambitos_order %}
+    {% with is_group_first=forloop.first %}
+    <div class="onpe-cargo-group">
+      <div class="onpe-cargo-title">{{ ambito_labels|dict_get:amb }}</div>
+      <ul class="onpe-cargo-list">
+        <li>
+          <a class="onpe-subnav {% if cargo_sel|stringformat:"s" == amb %}active{% endif %}"
+             href="?depto={{ depto_sel }}&amp;prov={{ prov_sel }}&amp;dist={{ dist_sel }}&amp;cargo={{ amb }}">
+            {% if forloop.parentloop.last %}Resultados{% else %}Resultado{% endif %}
+          </a>
+        </li>
+        <li>
+          <a class="onpe-subnav {% if cargo_sel|stringformat:"s" == amb and request.GET.sub == 'estado' %}active{% endif %}"
+             href="?depto={{ depto_sel }}&amp;prov={{ prov_sel }}&amp;dist={{ dist_sel }}&amp;cargo={{ amb }}&amp;sub=estado">
+            Estado de actas
+          </a>
+        </li>
+        <li>
+          <a class="onpe-subnav {% if cargo_sel|stringformat:"s" == amb and request.GET.sub == 'resumen' %}active{% endif %}"
+             href="?depto={{ depto_sel }}&amp;prov={{ prov_sel }}&amp;dist={{ dist_sel }}&amp;cargo={{ amb }}&amp;sub=resumen">
+            Resumen
+          </a>
+        </li>
+      </ul>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </aside>
+
+  <section class="onpe-content" aria-label="Detalle de resultados para el cargo seleccionado">
+    <div class="onpe-content-head d-flex flex-wrap flex-md-nowrap align-items-md-start justify-content-between gap-3 mb-4">
+      <div>
+        <h2 class="onpe-page-title h4 fw-bold mb-2 text-primary-emphasis">
+          Resultados elecciones {{ tipo_region }} - {{ cargo_label }}: {{ ubica_label }}
+        </h2>
+        {% if ganador_nombre %}
+        <div class="subtitle mt-1">
+          <span class="badge text-bg-success rounded-pill d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check-circle"/></svg>
+            Ganador: {{ ganador_nombre }} · {{ ganador_votos }} votos
+          </span>
+        </div>
+        {% endif %}
+      </div>
+      <button type="button" class="btn btn-outline-secondary rounded-pill d-inline-flex align-items-center gap-1.5 fw-semibold flex-shrink-0" disabled aria-disabled="true" title="Exportaci&oacute;n PDF en construcci&oacute;n">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-file-text"/></svg>
+        Exportar PDF
+      </button>
+    </div>
+
+    <!-- ============== GRÁFICO CHART.JS ============== -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden" style="margin-bottom:1.5rem;">
+      <div class="card-header d-flex flex-wrap flex-sm-nowrap align-items-sm-center justify-content-between gap-2 border-0 bg-transparent px-4 pt-4 pb-2">
+        <div>
+          <h3 class="h5 fw-bold mb-1 text-primary-emphasis">Distribuci&oacute;n de Votos · {{ cargo_label }}</h3>
+          <div class="subtitle small text-muted">Resultados acumulados seg&uacute;n filtros de ubicaci&oacute;n geogr&aacute;fica</div>
+        </div>
+      </div>
+      <div class="card-body px-4 pb-4 pt-2" style="position:relative;">
+        <div style="position:relative;height:520px">
+          <canvas id="chartResultadoVotos" aria-label="Gr&aacute;fico de barras distribuci&oacute;n de votos"></canvas>
+        </div>
+        {% if not chart_labels_json or chart_labels_json == "[]" %}
+        <div class="alert alert-info d-flex align-items-start gap-2 rounded-3 border-0 p-3 mt-3">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 mt-0.5"><use href="#i-info"/></svg>
+          <div class="small">No hay resultados agregados para este cargo en la ubicaci&oacute;n seleccionada. Intente con otros filtros de distrito, provincia o regi&oacute;n.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ============== TABLA RESUMEN POR ORGANIZACIÓN ============== -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+      <div class="card-header d-flex flex-wrap flex-sm-nowrap align-items-sm-center justify-content-between gap-2 border-0 bg-transparent px-4 pt-4 pb-2">
+        <div>
+          <h3 class="h5 fw-bold mb-1 text-primary-emphasis">Resumen de Votos por Organizaci&oacute;n Pol&iacute;tica</h3>
+          <div class="subtitle small text-muted">Ordenado por cantidad de votos (mayor → menor). Incluye blancos, nulos y total emitido.</div>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="onpe-table table align-middle mb-0" aria-label="Tabla resumen de votos por organizaci&oacute;n pol&iacute;tica" style="font-size:.9rem;">
+            <thead class="bg-body-tertiary border-bottom">
+              <tr>
+                <th scope="col" colspan="2" class="small fw-semibold text-muted text-uppercase px-4 py-3">Organizaci&oacute;n pol&iacute;tica</th>
+                <th scope="col" class="small fw-semibold text-muted text-uppercase px-4 py-3 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody class="border-0">
+              {% if not table_org_rows %}
+              <tr>
+                <td colspan="3" class="px-4 py-5 text-center">
+                  <span class="text-muted d-inline-flex align-items-center gap-2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-info"/></svg>
+                    Sin datos en el &aacute;mbito y filtros seleccionados.
+                  </span>
+                </td>
+              </tr>
+              {% else %}
+                {% for row in table_org_rows %}
+                <tr class="{% if forloop.first %}leader-row{% endif %}">
+                  <td style="width:72px" class="px-4 py-3">
+                    <div class="org-cell">
+                      {% if row.logo_url %}
+                        <img class="onpe-logo" src="{{ row.logo_url }}" alt="{{ row.short_name|default:row.name }}" loading="lazy" onerror="this.style.display='none';var fb=this.parentElement.querySelector('.org-logo-fallback');if(fb)fb.style.display='inline-grid';">
+                        <span class="org-logo org-logo-fallback" style="display:none">{{ row.inicial }}</span>
+                      {% else %}
+                        <span class="org-logo">{{ row.inicial }}</span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="org-name">{{ row.name }}</span>
+                    {% if forloop.first %}
+                    <span class="badge text-bg-success rounded-pill d-inline-flex align-items-center gap-1 ms-2 px-2 py-1" style="font-size:.65rem">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check-circle"/></svg>
+                      MAYOR&Iacute;A
+                    </span>
+                    {% endif %}
+                  </td>
+                  <td class="text-right px-4 py-3"><span class="votos-num">{{ row.votos }}</span></td>
+                </tr>
+                {% endfor %}
+              {% endif %}
+
+              <tr class="total-row total-validos">
+                <td style="width:72px" class="px-4 py-3">&nbsp;</td>
+                <td class="px-4 py-3"><b>TOTAL DE VOTOS V&Aacute;LIDOS</b></td>
+                <td class="text-right px-4 py-3"><span class="votos-num"><b>{{ sum_validos }}</b></span></td>
+              </tr>
+              <tr>
+                <td style="width:72px" class="px-4 py-3">&nbsp;</td>
+                <td class="px-4 py-3">VOTOS EN BLANCO</td>
+                <td class="text-right px-4 py-3"><span class="votos-num">{{ sum_blancos }}</span></td>
+              </tr>
+              <tr>
+                <td style="width:72px" class="px-4 py-3">&nbsp;</td>
+                <td class="px-4 py-3">VOTOS NULOS</td>
+                <td class="text-right px-4 py-3"><span class="votos-num">{{ sum_nulos }}</span></td>
+              </tr>
+              <tr class="total-row total-emitted">
+                <td style="width:72px" class="px-4 py-3">&nbsp;</td>
+                <td class="px-4 py-3"><b>TOTAL DE VOTOS EMITIDOS</b></td>
+                <td class="text-right px-4 py-3"><span class="votos-num"><b>{{ sum_total_emitidos }}</b></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</div>
+
+<footer class="app-foot text-center text-muted small pb-4 pt-4 mt-4">
+  <b class="text-primary-emphasis">Elecciones 2026 · Presentaci&oacute;n de Resultados</b> — elecciones2026.whadox.com ·
+  Fuente: actas digitalizadas procesadas con IA multimodal ·
+  Actas en &aacute;mbito: <b>{{ total_actas_legacy }}</b> · Procesadas VPS: <b>{{ kpi_actas_procesadas }}</b>
+</footer>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    var canvas = document.getElementById('chartResultadoVotos');
+    if (!canvas || typeof Chart === 'undefined') return;
+    var ctx = canvas.getContext('2d');
+
+    var labels   = {{ chart_labels_json|safe }}   || [];
+    var data     = {{ chart_data_json|safe }}     || [];
+    var colors   = {{ chart_colors_json|safe }}   || [];
+    var logoUrls = {{ chart_logo_urls_json|safe }} || [];
+    var yMax     = {% if chart_y_max %}{{ chart_y_max }}{% else %}null{% endif %};
+
+    if (labels.length === 0 || data.length === 0) return;
+
+    var LOGO_SIZE = 40;
+    var logoCache = [];
+    logoUrls.forEach(function(url, i){
+      logoCache[i] = null;
+      if (!url) return;
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function(){ logoCache[i] = img; try{ if (window._chartInst) window._chartInst.draw(); }catch(_){} };
+      img.onerror = function(){ logoCache[i] = null; };
+      img.src = url;
+    });
+
+    var orgLogoPlugin = {
+      id: 'orgLogos',
+      afterDatasetsDraw: function(chart, _args, _opts){
+        if (!chart || !chart.getDatasetMeta || !chart.config || !chart.config.type) return;
+        var meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data) return;
+        var bars = meta.data;
+        if (!bars || !bars.length) return;
+        var c = chart.ctx;
+        c.save();
+        for (var i = 0; i < bars.length; i++) {
+          var bar = bars[i];
+          if (!bar) continue;
+          var img = logoCache[i];
+          if (!img) continue;
+          var bx = bar.x || 0;
+          var baseY = (typeof bar.base !== 'undefined') ? bar.base : (chart.chartArea ? chart.chartArea.bottom : 0);
+          var barTop = (typeof bar.y !== 'undefined') ? bar.y : baseY;
+          var topY = Math.min(barTop, baseY);
+          var cx = bx;
+          var cy = topY - (LOGO_SIZE / 2) - 8;
+          var x0 = cx - LOGO_SIZE / 2;
+          var y0 = cy - LOGO_SIZE / 2;
+          c.save();
+          c.shadowColor = 'rgba(15,23,42,.35)';
+          c.shadowBlur = 12;
+          c.shadowOffsetX = 0;
+          c.shadowOffsetY = 4;
+          c.fillStyle = '#ffffff';
+          roundRect(c, x0 - 3, y0 - 3, LOGO_SIZE + 6, LOGO_SIZE + 6, 8);
+          c.fill();
+          c.restore();
+          c.save();
+          c.strokeStyle = '#ffffff';
+          c.lineWidth = 3;
+          c.fillStyle = '#ffffff';
+          roundRect(c, x0 - 3, y0 - 3, LOGO_SIZE + 6, LOGO_SIZE + 6, 8);
+          c.fill();
+          c.stroke();
+          c.restore();
+          c.save();
+          roundRect(c, x0, y0, LOGO_SIZE, LOGO_SIZE, 5);
+          c.clip();
+          try { c.drawImage(img, x0, y0, LOGO_SIZE, LOGO_SIZE); }
+          catch (e) { /* ignore taint */ }
+          c.restore();
+        }
+        c.restore();
+      }
+    };
+    function roundRect(c, x, y, w, h, r){
+      if (typeof r === 'number') r = Math.min(r, w/2, h/2);
+      c.beginPath();
+      c.moveTo(x + r, y);
+      c.arcTo(x + w, y,     x + w, y + h, r);
+      c.arcTo(x + w, y + h, x,     y + h, r);
+      c.arcTo(x,     y + h, x,     y,     r);
+      c.arcTo(x,     y,     x + w, y,     r);
+      c.closePath();
+    }
+
+    var gradients = colors.map(function(cc){
+      var g = ctx.createLinearGradient(0, 0, 0, 520);
+      g.addColorStop(0, cc);
+      g.addColorStop(1, hexToRgba(cc, 0.55));
+      return g;
+    });
+
+    var chartOpts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 800, easing: 'easeOutQuart' },
+      layout: { padding: { top: 70, right: 20, left: 10, bottom: 10 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15,23,42,.96)',
+          titleFont: { weight: '700' },
+          bodyFont: { family: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
+          padding: 12,
+          callbacks: {
+            label: function(ctx){
+              var n = Number(ctx.raw) || 0;
+              return ' Votos: ' + n.toLocaleString('es-PE');
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            font: { weight: '600', size: 11 },
+            color: '#475569',
+            maxRotation: 35,
+            minRotation: 0,
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(148,163,184,.22)',
+            drawBorder: false,
+          },
+          ticks: {
+            font: { size: 11 },
+            color: '#64748b',
+            callback: function(v){
+              if (v >= 1000) return (v/1000).toFixed(v%1000===0?0:1) + 'k';
+              return v;
+            }
+          }
+        }
+      }
+    };
+    if (yMax != null && typeof yMax === 'number' && yMax > 0) {
+      chartOpts.scales.y.max = yMax;
+    }
+
+    window._chartInst = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Votos',
+          data: data,
+          backgroundColor: gradients,
+          borderColor: colors,
+          borderWidth: 1.5,
+          borderRadius: 8,
+          borderSkipped: false,
+          maxBarThickness: 80,
+        }]
+      },
+      options: chartOpts,
+      plugins: [orgLogoPlugin]
+    });
+
+    function hexToRgba(hex, alpha){
+      var h = hex.replace('#','');
+      if (h.length === 3) h = h.split('').map(function(c){return c+c;}).join('');
+      var bigint = parseInt(h, 16);
+      var r = (bigint >> 16) & 255;
+      var g = (bigint >> 8) & 255;
+      var b = bigint & 255;
+      return 'rgba('+r+','+g+','+b+','+alpha+')';
+    }
+  });
+})();
+</script>
+{% endblock %}

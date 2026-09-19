@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+{% load confidence_tags %}
+
+{% block title %}Gestión Actas Procesadas · Elecciones 2026{% endblock %}
+
+{% block body %}
+<div class="page-head mb-3">
+  <div>
+    <nav aria-label="breadcrumb" class="mb-1">
+      <ol class="breadcrumb breadcrumb-sm mb-0">
+        <li class="breadcrumb-item"><a class="text-decoration-none" href="{% url 'dashboard' %}">Inicio</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Gestión Actas Procesadas</li>
+      </ol>
+    </nav>
+    <h1 class="page-title mb-1">Gestión de Actas Procesadas</h1>
+    <p class="page-subtitle mb-0 text-muted small">Administración y purga segura de registros procesados, búsquedas avanzadas y eliminación individual con cascada.</p>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'dashboard' %}">
+      <svg class="i" width="15" height="15"><use href="#i-chevron-left"/></svg>
+      Volver
+    </a>
+  </div>
+</div>
+
+<section class="alert alert-danger d-flex align-items-start gap-3 mb-4 rounded-4 border-0" role="alert" aria-label="Zona de riesgo purga" style="background:rgba(220,38,38,.06);border-left:4px solid #dc2626!important;color:#7f1d1d">
+  <svg class="i flex-shrink-0 mt-0.5" width="22" height="22"><use href="#i-alert-octagon"/></svg>
+  <div class="flex-grow-1">
+    <strong class="d-block mb-1">ZONA DE RIESGO: Purga Completa de Datos Procesados</strong>
+    <p class="mb-0 small" style="color:#991b1b;line-height:1.55">
+      Elimina <b>TODOS</b> los registros de las 6 tablas vps_*. Las tablas legacy (<code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.08);font-size:12px">mesa</code>, <code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.08);font-size:12px">usuarios</code>, <code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.08);font-size:12px">actas_escrutinio</code>) <b>NUNCA</b> se tocarán. Acción irreversible.
+    </p>
+  </div>
+  <button type="button" class="btn btn-danger btn-sm flex-shrink-0 ms-2" id="btnOpenPurgeModal">
+    <svg class="i me-1" width="14" height="14"><use href="#i-trash-2"/></svg>
+    PURGAR TODOS LOS DATOS
+  </button>
+</section>
+
+<section class="card rounded-4 border-0 shadow-sm mb-4 filter-card">
+  <div class="card-body p-4 p-lg-5">
+    <div class="mb-4">
+      <h2 class="h5 mb-1 fw-bold text-navy">Filtros de Búsqueda</h2>
+      <div class="small text-muted">Refina los resultados por identificadores, fechas y métricas de confianza IA.</div>
+    </div>
+    <form method="get" id="gaSearchForm" novalidate>
+      <div class="row g-3 g-lg-4 align-items-end">
+        <div class="col-12 col-md-6 col-lg-4">
+          <label for="fPk" class="form-label fw-semibold small mb-1">ID Acta (PK)</label>
+          <input type="number" id="fPk" name="pk" min="1" value="{{ pk_q|default:'' }}" placeholder="Ej: 128" class="form-control form-control-sm">
+        </div>
+        <div class="col-12 col-md-6 col-lg-4">
+          <label for="fMesa" class="form-label fw-semibold small mb-1">N° Mesa / Local</label>
+          <input type="text" id="fMesa" name="mesa" value="{{ mesa_q|default:'' }}" placeholder="Ej: 01234" class="form-control form-control-sm">
+        </div>
+        <div class="col-12 col-md-6 col-lg-4">
+          <label for="fDesde" class="form-label fw-semibold small mb-1">Fecha Desde</label>
+          <input type="date" id="fDesde" name="fecha_desde" value="{{ fecha_desde|default:'' }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-12 col-md-6 col-lg-4">
+          <label for="fHasta" class="form-label fw-semibold small mb-1">Fecha Hasta</label>
+          <input type="date" id="fHasta" name="fecha_hasta" value="{{ fecha_hasta|default:'' }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-12 col-md-6 col-lg-4">
+          <label for="fConf" class="form-label fw-semibold small mb-1">Confianza IA</label>
+          <select id="fConf" name="confianza" class="form-select form-select-sm">
+            <option value="">-- Toda --</option>
+            <option value="high" {% if conf_q == "high" %}selected{% endif %}>ALTA (≥ 85%)</option>
+            <option value="medium" {% if conf_q == "medium" %}selected{% endif %}>MEDIA (60%–85%)</option>
+            <option value="low" {% if conf_q == "low" %}selected{% endif %}>BAJA (&lt; 60%)</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+              <svg class="i me-1" width="14" height="14"><use href="#i-search"/></svg>
+              Buscar
+            </button>
+            <a class="btn btn-outline-secondary btn-sm flex-grow-1" href="{% url 'gestion_actas' %}">
+              <svg class="i me-1" width="14" height="14"><use href="#i-rotate-ccw"/></svg>
+              Limpiar
+            </a>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="card rounded-4 border-0 shadow-sm table-pro-wrap">
+  <div class="card-body p-0">
+    <div class="px-4 px-lg-5 pt-4 pb-3 mb-0 d-flex align-items-start justify-content-between flex-wrap gap-2" style="border-bottom:1px solid var(--bs-border-color)">
+      <div>
+        <h2 class="h5 mb-1 fw-bold text-navy">Listado de Actas Procesadas</h2>
+        <div class="small text-muted">
+          Mostrando <b>{{ page_obj.object_list|length }}</b> de <b>{{ total_qs }}</b> registros.
+          <span class="ms-2 text-muted-2" style="color:#64748b;font-weight:600">
+            Última actualización: {% now "d/m/Y H:i" %}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 table-pro" role="grid" aria-label="Actas procesadas gestionadas" style="font-size:14px">
+        <thead style="background:#f8fafc">
+          <tr>
+            <th scope="col" class="ps-4 ps-lg-5">ID</th>
+            <th scope="col">Fecha Proces.</th>
+            <th scope="col">Mesa #</th>
+            <th scope="col">Distrito</th>
+            <th scope="col">Provincia</th>
+            <th scope="col">Dpto.</th>
+            <th scope="col">Confianza</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="text-end pe-4 pe-lg-5">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if not page_obj.object_list %}
+          <tr>
+            <td colspan="9" class="px-4 py-5 text-center">
+              <div class="alert alert-info d-flex gap-3 align-items-start mb-0 mx-auto" style="max-width:520px;background:rgba(14,165,233,.06);border:1px solid rgba(14,165,233,.18);color:#0c4a6e;border-radius:12px">
+                <svg class="i flex-shrink-0 mt-0.5" width="18" height="18"><use href="#i-inbox"/></svg>
+                <div class="text-start">No hay actas que coincidan con los filtros seleccionados.</div>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+            {% for a in page_obj.object_list %}
+            <tr data-pk="{{ a.pk }}">
+              <td class="ps-4 ps-lg-5 mono"><b class="text-navy" style="font-size:13.5px">#{{ a.pk }}</b></td>
+              <td class="mono small text-muted">{{ a.created_at|date:"d/m/Y H:i" }}</td>
+              <td class="fw-bold text-navy">{{ a.v_mesa }}</td>
+              <td>{{ a.v_distrito }}</td>
+              <td>{{ a.v_provincia }}</td>
+              <td>{{ a.v_departamento }}</td>
+              <td style="min-width:170px">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="confidence-bar flex-grow-1" title="{{ a.confidence_score|conf_pct }}" role="progressbar" aria-valuenow="{{ a.confidence_score|default:0|floatformat:0 }}">
+                    <div class="confidence-bar__fill conf-{{ a.confidence_score|conf_level }}"
+                         style="width:{% if a.confidence_score %}{{ a.confidence_score|floatformat:2 }}%{% else %}10%{% endif %};min-width:6px"></div>
+                  </div>
+                  <span class="badge rounded-pill bg-secondary-subtle text-secondary px-2 py-1 fw-semibold mono" style="font-size:11px">{{ a.confidence_score|conf_pct }}</span>
+                </div>
+              </td>
+              <td>
+                {% if a.status == "procesado_ok" %}<span class="badge text-bg-success rounded-pill px-3 py-1.5 fw-semibold">PROCESADO</span>
+                {% elif a.status == "revisado_ok" %}<span class="badge text-bg-primary rounded-pill px-3 py-1.5 fw-semibold">REVISADO</span>
+                {% elif a.status == "observado" %}<span class="badge text-bg-warning rounded-pill px-3 py-1.5 fw-semibold" style="color:#78350f">OBSERVADO</span>
+                {% elif a.status == "error" %}<span class="badge text-bg-danger rounded-pill px-3 py-1.5 fw-semibold">ERROR</span>
+                {% else %}<span class="badge rounded-pill bg-secondary-subtle text-secondary px-3 py-1.5 fw-semibold">—</span>{% endif %}
+                {% if a.v_has_review %}<span class="badge text-bg-danger rounded-pill px-2 py-1 ms-1 fw-bold" style="font-size:10px">REV</span>{% endif %}
+              </td>
+              <td class="text-end pe-4 pe-lg-5">
+                <div class="d-inline-flex gap-2">
+                  <a href="{% url 'acta_detail' a.pk %}" class="btn btn-outline-secondary btn-sm" title="Ver detalle">
+                    <svg class="i" width="13" height="13"><use href="#i-eye"/></svg>
+                  </a>
+                  <button type="button" class="btn btn-danger btn-sm btn-delete-acta"
+                          data-pk="{{ a.pk }}"
+                          data-mesa="{{ a.v_mesa }}"
+                          data-distrito="{{ a.v_distrito }}"
+                          data-provincia="{{ a.v_provincia }}"
+                          data-dpto="{{ a.v_departamento }}"
+                          data-fecha="{{ a.created_at|date:'d/m/Y H:i' }}"
+                          data-status="{{ a.status }}"
+                          title="Eliminar acta y cascada de hijos">
+                    <svg class="i me-1" width="13" height="13"><use href="#i-trash-2"/></svg>
+                    Eliminar
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj and page_obj.paginator.num_pages > 1 %}
+    <nav class="pagination-pro px-4 px-lg-5 py-4 d-flex flex-wrap align-items-center justify-content-between gap-3" role="navigation" aria-label="Paginación de resultados" style="border-top:1px solid var(--bs-border-color)">
+      <div class="small text-muted fw-medium">
+        Página <b class="text-navy">{{ page_obj.number }}</b> de <b class="text-navy">{{ page_obj.paginator.num_pages }}</b>
+      </div>
+      <div class="d-flex align-items-center gap-1">
+        {% if page_obj.has_previous %}
+          <a class="btn btn-outline-secondary btn-sm rounded-pill px-3" href="?{% if pk_q %}pk={{ pk_q }}&{% endif %}{% if mesa_q %}mesa={{ mesa_q }}&{% endif %}{% if fecha_desde %}fecha_desde={{ fecha_desde }}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}&{% endif %}{% if conf_q %}confianza={{ conf_q }}&{% endif %}page=1" aria-label="Primera página">&laquo;</a>
+          <a class="btn btn-outline-secondary btn-sm rounded-pill px-3" href="?{% if pk_q %}pk={{ pk_q }}&{% endif %}{% if mesa_q %}mesa={{ mesa_q }}&{% endif %}{% if fecha_desde %}fecha_desde={{ fecha_desde }}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}&{% endif %}{% if conf_q %}confianza={{ conf_q }}&{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Página anterior">&lsaquo;</a>
+        {% else %}
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" disabled aria-disabled="true">&laquo;</button>
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" disabled aria-disabled="true">&lsaquo;</button>
+        {% endif %}
+
+        {% for p in page_obj.paginator.page_range %}
+          {% if p >= page_obj.number|add:"-2" and p <= page_obj.number|add:"2" %}
+            <a class="btn btn-sm rounded-pill px-3 {% if p == page_obj.number %}btn-primary fw-bold{% else %}btn-outline-secondary{% endif %}"
+               href="?{% if pk_q %}pk={{ pk_q }}&{% endif %}{% if mesa_q %}mesa={{ mesa_q }}&{% endif %}{% if fecha_desde %}fecha_desde={{ fecha_desde }}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}&{% endif %}{% if conf_q %}confianza={{ conf_q }}&{% endif %}page={{ p }}"
+               {% if p == page_obj.number %}aria-current="page"{% endif %}>{{ p }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+          <a class="btn btn-outline-secondary btn-sm rounded-pill px-3" href="?{% if pk_q %}pk={{ pk_q }}&{% endif %}{% if mesa_q %}mesa={{ mesa_q }}&{% endif %}{% if fecha_desde %}fecha_desde={{ fecha_desde }}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}&{% endif %}{% if conf_q %}confianza={{ conf_q }}&{% endif %}page={{ page_obj.next_page_number }}" aria-label="Página siguiente">&rsaquo;</a>
+          <a class="btn btn-outline-secondary btn-sm rounded-pill px-3" href="?{% if pk_q %}pk={{ pk_q }}&{% endif %}{% if mesa_q %}mesa={{ mesa_q }}&{% endif %}{% if fecha_desde %}fecha_desde={{ fecha_desde }}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}&{% endif %}{% if conf_q %}confianza={{ conf_q }}&{% endif %}page={{ page_obj.paginator.num_pages }}" aria-label="Última página">&raquo;</a>
+        {% else %}
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" disabled aria-disabled="true">&rsaquo;</button>
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" disabled aria-disabled="true">&raquo;</button>
+        {% endif %}
+      </div>
+    </nav>
+    {% endif %}
+  </div>
+</section>
+
+<!-- ========== MODAL PURGAR TODO ========== -->
+<div id="purgeModal" role="dialog" aria-modal="true" aria-labelledby="purgeTitle" hidden
+     style="position:fixed;inset:0;background:rgba(15,23,42,.58);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:1080;padding:20px">
+  <div class="bg-white rounded-4 shadow-2xl w-100 overflow-hidden" role="document" style="max-width:640px">
+    <div class="d-flex align-items-center justify-content-between px-4 py-3" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff">
+      <h3 id="purgeTitle" class="h6 mb-0 fw-bold d-flex align-items-center gap-2">
+        <svg class="i" width="20" height="20"><use href="#i-alert-octagon"/></svg>
+        Confirmación Obligatoria · Purga Completa
+      </h3>
+      <button type="button" class="btn-close btn-close-white ms-2" data-close="purgeModal" aria-label="Cerrar"></button>
+    </div>
+    <div class="p-4 p-lg-5">
+      <div class="alert alert-danger d-flex gap-3 align-items-start mb-3 rounded-3 border-0" style="background:rgba(220,38,38,.06);border-left:4px solid #dc2626!important;color:#7f1d1d">
+        <svg class="i flex-shrink-0 mt-0.5" width="16" height="16"><use href="#i-alert-triangle"/></svg>
+        <div><b>ESTA ACCIÓN ES IRREVERSIBLE.</b> Elimine TODOS los registros de las 6 tablas de procesamiento VPS.</div>
+      </div>
+      <div class="alert alert-success d-flex gap-3 align-items-start mb-3 rounded-3 border-0" style="background:rgba(22,163,74,.06);border-left:4px solid #16a34a!important;color:#14532d">
+        <svg class="i flex-shrink-0 mt-0.5" width="16" height="16"><use href="#i-shield-check"/></svg>
+        <div>
+          <b>Garantía de Seguridad</b> · Las siguientes tablas <b>NUNCA</b> serán modificadas (solo lectura):
+          <ul class="mt-2 mb-0 ps-4" style="list-style:disc">
+            <li><code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.07);font-size:12px">usuarios</code> (autenticación)</li>
+            <li><code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.07);font-size:12px">mesa</code> (ubigeos y locales de votación)</li>
+            <li><code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.07);font-size:12px">actas_escrutinio</code> (registros fuente legado)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="alert alert-warning d-flex gap-3 align-items-start mb-4 rounded-3 border-0" style="background:rgba(212,175,55,.08);border-left:4px solid #D4AF37!important;color:#713f12">
+        <svg class="i flex-shrink-0 mt-0.5" width="16" height="16"><use href="#i-list"/></svg>
+        <div>
+          <b>Tablas que SÍ se vaciarán completamente</b> (prefijo vps_*):
+          <ul class="mt-2 mb-0 ps-4" style="list-style:disc">
+            <li><code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.07);font-size:12px">vps_human_correction</code> · <code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.07);font-size:12px">vps_manual_review_queue</code></li>
+            <li><code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.07);font-size:12px">vps_acta_vote_entry</code> · <code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.07);font-size:12px">vps_acta_transcription</code></li>
+            <li><code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.07);font-size:12px">vps_acta_image</code> · <code class="px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,.07);font-size:12px">vps_acta</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" value="" id="purgeCheck1" style="border-color:#cbd5e1">
+        <label class="form-check-label small" for="purgeCheck1">
+          Confirmo que esta acción <b>no se puede deshacer</b> y acepto la responsabilidad completa de los datos eliminados permanentemente.
+        </label>
+      </div>
+      <div class="form-check mb-4">
+        <input class="form-check-input" type="checkbox" value="" id="purgeCheck2" style="border-color:#cbd5e1">
+        <label class="form-check-label small" for="purgeCheck2">
+          Declaro bajo responsabilidad que <b>no existe ningún otro sistema en línea consumiendo estas 6 tablas vps_*</b>; confirmo que solo la plataforma elecciones2026.whadox.com las utiliza.
+        </label>
+      </div>
+
+      <input type="text" id="purgeConfirmInput" class="form-control form-control-lg"
+             placeholder="Escriba aquí la palabra de confirmación..."
+             autocomplete="off" spellcheck="false"
+             style="font-family:ui-monospace,Monaco,monospace;font-size:14px;font-weight:600;letter-spacing:.5px">
+      <p class="small text-muted mt-2 mb-0">
+        Para habilitar el botón, escriba exactamente:
+        <code id="purgeConfirmText" class="ms-1 px-2 py-1 rounded text-bg-dark fw-bold" style="font-size:12px;letter-spacing:.5px">CONFIRMO_PURGA_VPS_2026</code>
+      </p>
+    </div>
+    <div class="d-flex align-items-center justify-content-end gap-2 px-4 py-3" style="background:#f8fafc;border-top:1px solid var(--bs-border-color)">
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-close="purgeModal">Cancelar</button>
+      <button type="button" class="btn btn-danger btn-sm fw-semibold" id="btnConfirmPurge" disabled>
+        <svg class="i me-1" width="14" height="14"><use href="#i-trash-2"/></svg>
+        EJECUTAR PURGA COMPLETA
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MODAL ELIMINAR ACTA ========== -->
+<div id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteTitle" hidden
+     style="position:fixed;inset:0;background:rgba(15,23,42,.58);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:1080;padding:20px">
+  <div class="bg-white rounded-4 shadow-2xl w-100 overflow-hidden" role="document" style="max-width:560px">
+    <div class="d-flex align-items-center justify-content-between px-4 py-3" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff">
+      <h3 id="deleteTitle" class="h6 mb-0 fw-bold d-flex align-items-center gap-2">
+        <svg class="i" width="20" height="20"><use href="#i-trash-2"/></svg>
+        Eliminar Acta Individual
+      </h3>
+      <button type="button" class="btn-close btn-close-white ms-2" data-close="deleteModal" aria-label="Cerrar"></button>
+    </div>
+    <div class="p-4 p-lg-5">
+      <div class="alert alert-warning d-flex gap-3 align-items-start mb-4 rounded-3 border-0" style="background:rgba(212,175,55,.08);border-left:4px solid #D4AF37!important;color:#713f12">
+        <svg class="i flex-shrink-0 mt-0.5" width="16" height="16"><use href="#i-info"/></svg>
+        <div>Se eliminará el acta y su <b>cascada completa de registros hijos</b> (imágenes, transcripciones, votos, revisiones, correcciones humanas).</div>
+      </div>
+      <dl class="row mb-4 small g-2 g-lg-3 p-3 rounded-3" style="background:#fafbff;border:1px solid #e2e8f0">
+        <dt class="col-4 text-muted fw-semibold">ID Acta (PK)</dt><dd class="col-8 mono fw-bold mb-0" id="infoPk">—</dd>
+        <dt class="col-4 text-muted fw-semibold">Mesa #</dt><dd class="col-8 fw-semibold mb-0" id="infoMesa">—</dd>
+        <dt class="col-4 text-muted fw-semibold">Fecha Proces.</dt><dd class="col-8 mono mb-0" id="infoFecha">—</dd>
+        <dt class="col-4 text-muted fw-semibold">Estado</dt><dd class="col-8 mb-0" id="infoStatus">—</dd>
+        <dt class="col-12 text-muted fw-semibold pt-2" style="border-top:1px dashed #e2e8f0">Ubicación</dt>
+        <dd class="col-12 mb-0" id="infoUbicacion">—</dd>
+      </dl>
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" value="" id="deleteCheck" style="border-color:#cbd5e1">
+        <label class="form-check-label small" for="deleteCheck">
+          Confirmo la <b>eliminación permanente e irreversible</b> de este acta y todos sus registros hijos asociados.
+        </label>
+      </div>
+    </div>
+    <div class="d-flex align-items-center justify-content-end gap-2 px-4 py-3" style="background:#f8fafc;border-top:1px solid var(--bs-border-color)">
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-close="deleteModal">Cancelar</button>
+      <button type="button" class="btn btn-danger btn-sm fw-semibold" id="btnConfirmDelete" disabled>
+        <svg class="i me-1" width="14" height="14"><use href="#i-check"/></svg>
+        CONFIRMAR ELIMINACIÓN
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast position-fixed bottom-4 end-4 z-3 p-3 rounded-3 shadow-2xl d-flex align-items-center gap-2 border-0" id="toast" role="status" aria-live="polite" hidden
+     style="min-width:300px;background:#fff">
+  <svg class="i flex-shrink-0" width="18" height="18" id="toastIcon"><use href="#i-check-circle"/></svg>
+  <span class="flex-grow-1 fw-medium" id="toastText" style="font-size:14px">Operación completada.</span>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  'use strict';
+  function $(s, r){ return (r||document).querySelector(s); }
+  function $$(s, r){ return Array.from((r||document).querySelectorAll(s)); }
+  function getCsrf(){
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.content) return m.content;
+    var c = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+    return c ? decodeURIComponent(c[1]) : '';
+  }
+  function showToast(type, msg){
+    var t = $('#toast');
+    var icon = $('#toastIcon use');
+    var icons = {ok:'#i-check-circle', err:'#i-x-circle', info:'#i-info', warn:'#i-alert-triangle'};
+    icon.setAttribute('href', icons[type] || icons.ok);
+    $('#toastText').textContent = msg;
+    t.className = 'toast position-fixed bottom-4 end-4 z-3 p-3 rounded-3 shadow-2xl d-flex align-items-center gap-2 border-0 toast--' + (type || 'ok');
+    t.hidden = false;
+    clearTimeout(t._tm);
+    t._tm = setTimeout(function(){ t.hidden = true; }, 5200);
+  }
+  function openModal(id){ var m = $('#'+id); if (m) { m.hidden = false; m.classList.add('open'); document.body.style.overflow='hidden'; } }
+  function closeModal(id){ var m = $('#'+id); if (m) { m.hidden = true; m.classList.remove('open'); document.body.style.overflow=''; } }
+  $$('[data-close]').forEach(function(b){
+    b.addEventListener('click', function(){ closeModal(b.dataset.close); });
+  });
+  $$('#purgeModal, #deleteModal').forEach(function(bd){
+    bd.addEventListener('click', function(e){ if (e.target === bd) closeModal(bd.id); });
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') $$('#purgeModal.open, #deleteModal.open').forEach(function(m){ closeModal(m.id); });
+  });
+
+  $('#btnOpenPurgeModal').addEventListener('click', function(){ openModal('purgeModal'); });
+  function refreshPurgeBtn(){
+    var c1 = $('#purgeCheck1').checked;
+    var c2 = $('#purgeCheck2').checked;
+    var txt = $('#purgeConfirmText').textContent.trim();
+    var typed = $('#purgeConfirmInput').value.trim();
+    var ok = c1 && c2 && typed === txt;
+    $('#btnConfirmPurge').disabled = !ok;
+    var i = $('#purgeConfirmInput');
+    i.classList.toggle('is-valid', typed === txt);
+    i.classList.toggle('is-invalid', !!typed && typed !== txt);
+  }
+  ['purgeCheck1','purgeCheck2','purgeConfirmInput'].forEach(function(id){
+    $('#'+id).addEventListener('input change', refreshPurgeBtn);
+  });
+
+  $('#btnConfirmPurge').addEventListener('click', function(){
+    var btn = this; if (btn.disabled) return;
+    btn.disabled = true;
+    var origHTML = btn.innerHTML;
+    btn.innerHTML = '<svg class="i me-1" width="15" height="15" style="animation:spin 1s linear infinite"><use href="#i-loader-2"/></svg> PROCESANDO...';
+    fetch("{% url 'purgar_todo_api' %}", {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'X-CSRFToken':getCsrf(), 'Accept':'application/json' },
+      body: JSON.stringify({ confirmar: true, declaracion_no_legacy: true })
+    }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok,s:r.status,d:d}; }); })
+      .then(function(res){
+        btn.innerHTML = origHTML;
+        if (res.ok && res.d.ok) {
+          var tot = res.d.total_rows || 0;
+          var detail = Object.entries(res.d.deleted_counts || {}).map(function(p){ return p[0] + ': ' + p[1]; }).join(' · ');
+          showToast('ok', 'Purga completada. ' + tot + ' filas eliminadas. (' + detail + ')');
+          closeModal('purgeModal');
+          $('#purgeCheck1').checked = false;
+          $('#purgeCheck2').checked = false;
+          $('#purgeConfirmInput').value = '';
+          refreshPurgeBtn();
+          setTimeout(function(){ location.reload(); }, 1400);
+        } else {
+          showToast('err', (res.d && res.d.error) || 'Error al ejecutar purga.');
+          btn.disabled = false;
+        }
+      })
+      .catch(function(err){
+        btn.innerHTML = origHTML; btn.disabled = false;
+        showToast('err', 'Error de red: ' + err.message);
+      });
+  });
+
+  var _currentDeletePk = null;
+  $$('.btn-delete-acta').forEach(function(b){
+    b.addEventListener('click', function(){
+      _currentDeletePk = parseInt(b.dataset.pk, 10);
+      $('#infoPk').textContent = '#' + (b.dataset.pk || '-');
+      $('#infoMesa').textContent = b.dataset.mesa || '-';
+      $('#infoFecha').textContent = b.dataset.fecha || '-';
+      $('#infoStatus').textContent = b.dataset.status || '-';
+      var parts = [b.dataset.dpto, b.dataset.provincia, b.dataset.distrito].filter(Boolean);
+      $('#infoUbicacion').textContent = parts.length ? parts.join(' · ') : '-';
+      $('#deleteCheck').checked = false;
+      $('#btnConfirmDelete').disabled = true;
+      openModal('deleteModal');
+    });
+  });
+  $('#deleteCheck').addEventListener('change', function(){
+    $('#btnConfirmDelete').disabled = !this.checked;
+  });
+  $('#btnConfirmDelete').addEventListener('click', function(){
+    var btn = this;
+    if (btn.disabled || !_currentDeletePk) return;
+    btn.disabled = true;
+    var origHTML = btn.innerHTML;
+    btn.innerHTML = '<svg class="i me-1" width="15" height="15" style="animation:spin 1s linear infinite"><use href="#i-loader-2"/></svg> ELIMINANDO...';
+    var pk = _currentDeletePk;
+    var urlBase = "{% url 'eliminar_acta_api' pk=999999999 %}";
+    var url = urlBase.replace('999999999', String(pk));
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'X-CSRFToken':getCsrf(), 'Accept':'application/json' },
+      body: JSON.stringify({ confirmar: true })
+    }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok,s:r.status,d:d}; }); })
+      .then(function(res){
+        btn.innerHTML = origHTML;
+        if (res.ok && res.d.ok) {
+          showToast('ok', 'Acta #' + pk + ' eliminada correctamente. ' + (res.d.msg || ''));
+          closeModal('deleteModal');
+          var tr = document.querySelector('.table-pro tr[data-pk="' + pk + '"]');
+          if (tr) {
+            tr.style.transition = 'all .3s ease';
+            tr.style.opacity = '0';
+            tr.style.transform = 'translateX(30px)';
+            setTimeout(function(){ tr.remove(); }, 300);
+          }
+          setTimeout(function(){ location.reload(); }, 800);
+        } else {
+          showToast('err', (res.d && res.d.error) || 'Error al eliminar.');
+          btn.disabled = false;
+        }
+      })
+      .catch(function(err){
+        btn.innerHTML = origHTML; btn.disabled = false;
+        showToast('err', 'Error de red: ' + err.message);
+      });
+  });
+
+  var st = document.createElement('style');
+  st.textContent = '@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}';
+  document.head.appendChild(st);
+})();
+</script>
+{% endblock %}

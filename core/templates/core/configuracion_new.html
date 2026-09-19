@@ -1,0 +1,721 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración de Procesamiento IA · Elecciones 2026{% endblock %}
+
+{% block body %}
+<!-- CFG_HTML_START_20260918_BUILD006 -->
+<div class="page-head mb-3">
+  <div>
+    <nav aria-label="breadcrumb" class="mb-1">
+      <ol class="breadcrumb breadcrumb-sm mb-0">
+        <li class="breadcrumb-item"><a class="text-decoration-none" href="{% url 'dashboard' %}">Inicio</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Configuración IA</li>
+      </ol>
+    </nav>
+    <h1 class="page-title mb-1 d-flex align-items-center gap-2"><svg class="i" width="20" height="20"><use href="#i-sliders"/></svg>Configuración de Procesamiento por IA</h1>
+    <p class="page-subtitle mb-0 text-muted small">Parámetros de proveedores de IA (API keys, modelos) y pipeline batch de procesamiento automático. Ajuste únicamente si conoce los límites de hardware del VPS. Cualquier cambio se registra en el log de auditoría.</p>
+  </div>
+</div>
+
+{# HERO NAVY/DORADO #}
+<section class="card rounded-4 overflow-hidden mb-4 border-0 shadow-sm" style="background:linear-gradient(135deg,#0F3A7D 0%,#1a4d9e 50%,#2860c9 100%);color:#fff">
+  <div class="card-body p-4 p-lg-5 d-flex flex-wrap align-items-center justify-content-between gap-4">
+    <div style="flex:1 1 420px;min-width:0;max-width:760px">
+      <div class="text-uppercase fw-semibold mb-2 d-inline-flex align-items-center gap-2" style="font-size:12px;letter-spacing:.8px;color:rgba(255,255,255,.78)">
+        <svg class="i" width="13" height="13"><use href="#i-shield"/></svg>
+        Panel de Control · Auditoría Electoral
+      </div>
+      <h2 class="fw-extrabold mb-2" style="font-size:clamp(1.4rem,2vw,1.9rem);letter-spacing:-.01em;color:#fff;line-height:1.25">
+        Pipeline de Procesamiento Batch · Multimodal IA
+      </h2>
+      <p class="mb-0" style="color:rgba(255,255,255,.82);font-size:14px;line-height:1.65">
+        Configure los proveedores de IA (Gemini principal, DeepSeek redundancia), concurrencia de workers, tamaño de lote y frecuencias de polling. Todos los ajustes se validan contra límites de seguridad hardware del VPS (4 vCPU · 8 GiB RAM).
+      </p>
+    </div>
+    <div class="d-grid gap-2" style="grid-template-columns:repeat(2,minmax(180px,1fr));min-width:380px">
+      <div class="px-3 py-2.5 rounded-3 d-flex align-items-center gap-2 {% if config and config.auto_batch_enabled %}{% else %}opacity-70{% endif %}" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)">
+        <span class="flex-shrink-0 rounded-circle" style="width:10px;height:10px;background:{% if config and config.auto_batch_enabled %}#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.2){% else %}#64748b{% endif %}"></span>
+        <div>
+          <div class="text-uppercase fw-bold" style="font-size:10.5px;letter-spacing:.8px;color:rgba(255,255,255,.7)">Auto-lote</div>
+          <div class="fw-bold" style="font-size:14px">{% if config and config.auto_batch_enabled %}ACTIVO{% else %}INACTIVO{% endif %}</div>
+        </div>
+      </div>
+      <div class="px-3 py-2.5 rounded-3 d-flex align-items-center gap-2" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)">
+        <span class="flex-shrink-0 rounded-circle" style="width:10px;height:10px;background:#93c5fd;box-shadow:0 0 0 4px rgba(147,197,253,.25)"></span>
+        <div>
+          <div class="text-uppercase fw-bold" style="font-size:10.5px;letter-spacing:.8px;color:rgba(255,255,255,.7)">Concurrencia</div>
+          <div class="fw-bold" style="font-size:14px">{% if config %}{{ config.max_concurrent }}{% else %}2{% endif %} workers</div>
+        </div>
+      </div>
+      <div class="px-3 py-2.5 rounded-3 d-flex align-items-center gap-2" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)">
+        <span class="flex-shrink-0 rounded-circle" style="width:10px;height:10px;background:#D4AF37;box-shadow:0 0 0 4px rgba(212,175,55,.25)"></span>
+        <div>
+          <div class="text-uppercase fw-bold" style="font-size:10.5px;letter-spacing:.8px;color:rgba(255,255,255,.7)">Lote máx</div>
+          <div class="fw-bold" style="font-size:14px">{% if config %}{{ config.max_batch_size_per_dispatch }}{% else %}8{% endif %} actas</div>
+        </div>
+      </div>
+      <div class="px-3 py-2.5 rounded-3 d-flex align-items-center gap-2 {% if active_provider_exists %}{% else %}opacity-70{% endif %}" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)">
+        <span class="flex-shrink-0 rounded-circle" style="width:10px;height:10px;background:{% if active_provider_exists %}#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.2){% else %}#ef4444{% endif %}"></span>
+        <div>
+          <div class="text-uppercase fw-bold" style="font-size:10.5px;letter-spacing:.8px;color:rgba(255,255,255,.7)">Proveedor activo</div>
+          <div class="fw-bold" style="font-size:14px">{% if active_provider_exists %}OK{% else %}NO{% endif %}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- CFG_HERO_END -->
+
+{# MENSAJES #}
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert d-flex gap-3 align-items-start mb-3 {% if message.tags == 'success' %}alert-success{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'error' %}alert-danger{% else %}alert-info{% endif %} rounded-4 border-0 p-4" role="status" aria-live="polite">
+    <svg class="i flex-shrink-0 mt-0.5" width="18" height="18"><use href="#i-{% if message.tags == 'success' %}check-circle-2{% else %}alert-triangle{% endif %}"/></svg>
+    <span class="fw-medium small">{{ message }}</span>
+  </div>
+  {% endfor %}
+{% endif %}
+{% if form and form.non_field_errors %}
+  {% for err in form.non_field_errors %}
+  <div class="alert alert-danger d-flex gap-3 align-items-start mb-3 rounded-4 border-0 p-4" role="alert">
+    <svg class="i flex-shrink-0 mt-0.5" width="18" height="18"><use href="#i-alert-triangle"/></svg>
+    <span class="fw-medium small">{{ err }}</span>
+  </div>
+  {% endfor %}
+{% endif %}
+<!-- CFG_MESSAGES_END -->
+
+{# BANNER NO PROVEEDOR ACTIVO #}
+{% if not active_provider_exists %}
+<div class="alert alert-danger d-flex gap-3 align-items-start mb-4 rounded-4 border-0 p-4" role="alert" id="no-provider-banner" style="background:rgba(239,68,68,.06);border-left:4px solid #ef4444!important;color:#7f1d1d">
+  <svg class="i flex-shrink-0 mt-0.5" width="20" height="20"><use href="#i-shield-alert"/></svg>
+  <div>
+    <strong class="d-block mb-1">Atención:</strong>
+    <span class="small" style="line-height:1.6;color:#991b1b">
+      No hay ningún proveedor de IA ACTIVO con API key válida (longitud ≥ 10 caracteres). La transcripción y el procesamiento por lote NO FUNCIONARÁN. Configure al menos uno (Gemini o DeepSeek) y pulse "Testear Conexión" para validar.
+    </span>
+  </div>
+</div>
+{% endif %}
+<!-- CFG_NOPROV_BANNER_END -->
+
+{# SAFE LIMITS BANNER #}
+<div class="alert alert-warning d-flex gap-3 align-items-start mb-4 rounded-4 border-0 p-4 p-lg-5" role="alert" style="background:rgba(212,175,55,.07);border-left:4px solid #D4AF37!important;color:#713f12">
+  <svg class="i flex-shrink-0 mt-0.5" width="22" height="22"><use href="#i-shield-alert"/></svg>
+  <div class="flex-grow-1" style="min-width:0">
+    <strong class="d-block mb-2" style="color:#713f12">Límites de seguridad del VPS (no superar):</strong>
+    <div class="row g-3 g-lg-4 mt-2 small" style="color:#78350f;line-height:1.6">
+      <div class="col-12 col-md-4">
+        <div class="fw-bold mb-0.5">max_concurrent</div>
+        <div class="text-muted-2" style="color:#713f12">Máximo <b>4 workers</b> simultáneos (4 vCPU · 8 GiB RAM · 512 MB OOM headroom).</div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="fw-bold mb-0.5">max_batch_size</div>
+        <div class="text-muted-2" style="color:#713f12">Máximo <b>30 actas</b> por despacho para evitar saturar la cola Redis.</div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="fw-bold mb-0.5">poll_progress_interval</div>
+        <div class="text-muted-2" style="color:#713f12">Mínimo <b>1s</b>, máximo <b>15s</b> (menor = mayor consumo CPU cliente).</div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- CFG_SAFEBANNER_END -->
+
+{# ===================================================== #}
+{# TABS PRO: 2 tabs (Proveedores IA · Pipeline Batch)   #}
+{# ===================================================== #}
+<!-- CFG_TABSNOWRAP_START -->
+<!-- CFG_TABS_HTML_START -->
+<ul class="nav nav-tabs-pro mb-4 pb-0 flex-wrap" data-tabs="config-main" role="tablist" aria-label="Configuración principal">
+  <li class="nav-item" role="presentation">
+    <button type="button"
+            class="nav-link is-active fw-semibold px-0 me-4"
+            role="tab"
+            data-tab-for="tab-providers"
+            aria-selected="true"
+            aria-controls="tab-providers"
+            id="tab-providers-btn"
+            tabindex="0"
+            style="border-bottom-color:#0F3A7D;color:#0F3A7D">
+      <svg class="i me-1" width="16" height="16"><use href="#i-cpu"/></svg>
+      Proveedores IA
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button type="button"
+            class="nav-link fw-semibold px-0 me-4"
+            role="tab"
+            data-tab-for="tab-pipeline"
+            aria-selected="false"
+            aria-controls="tab-pipeline"
+            id="tab-pipeline-btn"
+            tabindex="-1">
+      <svg class="i me-1" width="16" height="16"><use href="#i-zap"/></svg>
+      Pipeline Batch
+    </button>
+  </li>
+</ul>
+<!-- CFG_TABS_HTML_END -->
+
+{# ============== TAB 1: PROVEEDORES IA ============== #}
+<!-- CFG_TAB1_PROVIDERS_START -->
+<section id="tab-providers"
+         class="tab-panel is-visible"
+         role="tabpanel"
+         aria-labelledby="tab-providers-btn"
+         aria-hidden="false">
+
+  <div class="row row-cols-1 row-cols-lg-2 g-4" aria-label="Tarjetas de proveedores IA">
+    {% if ai_providers %}
+      {# ----- GEMINI CARD ----- #}
+      {% for prov in ai_providers %}
+      {% if prov.provider == 'gemini' %}
+      <article class="col">
+        <div class="card rounded-4 h-100 border-0 shadow-sm provider-card {% if prov.is_active %}is-active{% endif %}" data-provider="gemini" id="card-gemini"
+             style="{% if prov.is_active %}border-left:4px solid #D4AF37!important{% else %}border:1px solid var(--bs-border-color)!important{% endif %}">
+          <div class="card-body p-4 p-lg-5">
+            <div class="d-flex align-items-start justify-content-between mb-4 gap-3">
+              <div class="d-flex align-items-start gap-3">
+                <div class="flex-shrink-0 rounded-3 d-flex align-items-center justify-content-center fw-extrabold text-white" style="width:52px;height:52px;background:linear-gradient(135deg,#4285F4,#34A853,#FBBC05,#EA4335);font-size:20px;box-shadow:0 4px 12px rgba(66,133,244,.25)">G</div>
+                <div>
+                  <div class="fw-bold h6 mb-0.5 text-navy">Google Gemini</div>
+                  <div class="small text-muted" style="line-height:1.5">Proveedor multimodal · Imagen + OCR · API Google Cloud Vertex</div>
+                </div>
+              </div>
+              <span class="badge rounded-pill px-3 py-1.5 fw-bold mono flex-shrink-0 {% if api_key_len.gemini >= 10 %}text-bg-success{% else %}text-bg-danger{% endif %}"
+                    title="Longitud de la API key (mínimo 10 caracteres)" style="font-size:11px;letter-spacing:.5px">
+                KEY·{{ api_key_len.gemini|default:0 }}
+              </span>
+            </div>
+            <form class="provider-form mb-0" data-provider-form="gemini" novalidate
+                  hx-post="{% url 'ai_provider_save' %}"
+                  hx-swap="none"
+                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+              <input type="hidden" name="provider" value="gemini"/>
+              <div class="mb-4">
+                <label for="gemini_api_key" class="form-label fw-semibold small mb-1">
+                  API Key <span class="text-danger">*</span>
+                  <span class="form-text d-block mt-1" id="hint_gemini_key" style="color:#64748b;font-size:12px">No se almacena en texto plano (Fernet AES128).</span>
+                </label>
+                <div class="input-group input-group-sm">
+                  <input type="password" id="gemini_api_key" name="api_key"
+                         class="form-control form-control-sm"
+                         autocomplete="off" spellcheck="false"
+                         placeholder="AIzaSy..."
+                         aria-describedby="hint_gemini_key"
+                         {% if api_key_len.gemini >= 10 %}value="****************************************"{% endif %}/>
+                  <button type="button" class="btn btn-outline-secondary input-group-text provider-pw-toggle"
+                          data-toggle-pw="gemini_api_key"
+                          aria-label="Mostrar / ocultar clave Gemini" title="Mostrar / ocultar"
+                          style="cursor:pointer">
+                    <svg class="i i-eye" width="15" height="15"><use href="#i-eye"/></svg>
+                    <svg class="i i-eye-off" width="15" height="15" style="display:none"><use href="#i-eye-off"/></svg>
+                  </button>
+                </div>
+                <div class="small mt-2" style="color:#64748b">
+                  Longitud actual: <b class="text-navy">{{ api_key_len.gemini|default:0 }}</b> caracteres.
+                  Dejar <em>exactamente igual</em> si ya está configurada y no desea cambiarla.
+                </div>
+              </div>
+              <div class="row g-3 mb-3">
+                <div class="col-12 col-md-6">
+                  <label for="gemini_model" class="form-label fw-semibold small mb-1">Modelo</label>
+                  <select id="gemini_model" name="model" class="form-select form-select-sm">
+                    {% for slug, label in GEMINI_MODEL_CHOICES %}
+                    <option value="{{ slug }}" {% if prov.model == slug %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label for="gemini_temperature" class="form-label fw-semibold small mb-1">Temperatura</label>
+                  <input type="number" id="gemini_temperature" name="temperature"
+                         min="0" max="2" step="0.05"
+                         value="{{ prov.temperature|default:0.2 }}"
+                         class="form-control form-control-sm"/>
+                  <div class="small mt-1" style="color:#64748b">0.0 = determinista · 2.0 = creativo. Recomendado ≤ 0.4 para OCR.</div>
+                </div>
+              </div>
+              <div class="row g-3 mb-4">
+                <div class="col-12 col-md-6">
+                  <label for="gemini_timeout" class="form-label fw-semibold small mb-1">Timeout (s)</label>
+                  <input type="number" id="gemini_timeout" name="timeout"
+                         min="10" max="300" step="5"
+                         value="{{ prov.timeout|default:60 }}"
+                         class="form-control form-control-sm"/>
+                  <div class="small mt-1" style="color:#64748b">Tiempo máximo por llamada API antes de abortar.</div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label for="gemini_retries" class="form-label fw-semibold small mb-1">Reintentos</label>
+                  <input type="number" id="gemini_retries" name="max_retries"
+                         min="0" max="10" step="1"
+                         value="{{ prov.max_retries|default:3 }}"
+                         class="form-control form-control-sm"/>
+                  <div class="small mt-1" style="color:#64748b">Reintentos en errores 5xx / timeouts transitorios.</div>
+                </div>
+              </div>
+              <div class="d-flex align-items-center justify-content-between gap-4 p-3 rounded-3 mb-4" style="background:#f8fafc;border:1px solid #e2e8f0">
+                <div style="min-width:0;flex:1 1 auto">
+                  <strong class="d-block text-navy small">Proveedor Activo</strong>
+                  <span class="small" style="color:#64748b;line-height:1.5">Si está activado, el pipeline utilizará este proveedor para transcripciones. Si más de uno está activo, se usa Gemini primero.</span>
+                </div>
+                <div class="form-check form-switch flex-shrink-0 ms-3" style="transform:scale(1.25)">
+                  <input class="form-check-input" type="checkbox" name="is_active" {% if prov.is_active %}checked{% endif %} id="gemini_active" role="switch" style="cursor:pointer">
+                </div>
+              </div>
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div class="d-flex gap-2 flex-wrap">
+                  <button type="submit" class="btn btn-primary btn-sm btn-provider-save fw-semibold px-4">
+                    <svg class="i me-1" width="14" height="14"><use href="#i-save"/></svg>
+                    Guardar Gemini
+                  </button>
+                  <button type="button"
+                          class="btn btn-outline-secondary btn-sm btn-provider-test fw-semibold px-4"
+                          aria-label="Probar conexión Gemini"
+                          hx-post="{% url 'ai_provider_test' provider='gemini' %}"
+                          hx-swap="none"
+                          hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                          hx-indicator="#card-gemini [data-alert-for=gemini]"
+                          data-test-for="gemini"
+                          data-alert-target="#card-gemini [data-alert-for=gemini]">
+                    <svg class="i me-1" width="14" height="14"><use href="#i-wifi"/></svg>
+                    Testear Conexión
+                  </button>
+                </div>
+                <div class="provider-alert small d-flex align-items-center gap-2 p-2.5 rounded-3 flex-grow-1" data-alert-for="gemini" role="status" aria-live="polite" id="gemini-alert"
+                     style="background:rgba(14,165,233,.06);border:1px solid rgba(14,165,233,.15);color:#0c4a6e;min-width:260px;max-width:100%">
+                  <svg class="i flex-shrink-0" width="15" height="15"><use href="#i-loader-2"/></svg>
+                  <span class="alert-text fw-medium">Pulse "Testear Conexión" para validar la configuración.</span>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </article>
+      {% endif %}
+      {% if prov.provider == 'deepseek' %}
+      <article class="col">
+        <div class="card rounded-4 h-100 border-0 shadow-sm provider-card {% if prov.is_active %}is-active{% endif %}" data-provider="deepseek" id="card-deepseek"
+             style="{% if prov.is_active %}border-left:4px solid #D4AF37!important{% else %}border:1px solid var(--bs-border-color)!important{% endif %}">
+          <div class="card-body p-4 p-lg-5">
+            <div class="d-flex align-items-start justify-content-between mb-4 gap-3">
+              <div class="d-flex align-items-start gap-3">
+                <div class="flex-shrink-0 rounded-3 d-flex align-items-center justify-content-center fw-extrabold text-white" style="width:52px;height:52px;background:linear-gradient(135deg,#4f46e5,#7c3aed);font-size:16px;box-shadow:0 4px 12px rgba(124,58,237,.25);letter-spacing:.5px">DS</div>
+                <div>
+                  <div class="fw-bold h6 mb-0.5 text-navy">DeepSeek</div>
+                  <div class="small text-muted" style="line-height:1.5">Proveedor multimodal · Imagen + OCR · API DeepSeek Platform</div>
+                </div>
+              </div>
+              <span class="badge rounded-pill px-3 py-1.5 fw-bold mono flex-shrink-0 {% if api_key_len.deepseek >= 10 %}text-bg-success{% else %}text-bg-danger{% endif %}"
+                    title="Longitud de la API key (mínimo 10 caracteres)" style="font-size:11px;letter-spacing:.5px">
+                KEY·{{ api_key_len.deepseek|default:0 }}
+              </span>
+            </div>
+            <form class="provider-form mb-0" data-provider-form="deepseek" novalidate
+                  hx-post="{% url 'ai_provider_save' %}"
+                  hx-swap="none"
+                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+              <input type="hidden" name="provider" value="deepseek"/>
+              <div class="mb-4">
+                <label for="deepseek_api_key" class="form-label fw-semibold small mb-1">
+                  API Key <span class="text-danger">*</span>
+                  <span class="form-text d-block mt-1" id="hint_deepseek_key" style="color:#64748b;font-size:12px">No se almacena en texto plano (Fernet AES128).</span>
+                </label>
+                <div class="input-group input-group-sm">
+                  <input type="password" id="deepseek_api_key" name="api_key"
+                         class="form-control form-control-sm"
+                         autocomplete="off" spellcheck="false"
+                         placeholder="sk-..."
+                         aria-describedby="hint_deepseek_key"
+                         {% if api_key_len.deepseek >= 10 %}value="****************************************"{% endif %}/>
+                  <button type="button" class="btn btn-outline-secondary input-group-text provider-pw-toggle"
+                          data-toggle-pw="deepseek_api_key"
+                          aria-label="Mostrar / ocultar clave DeepSeek" title="Mostrar / ocultar"
+                          style="cursor:pointer">
+                    <svg class="i i-eye" width="15" height="15"><use href="#i-eye"/></svg>
+                    <svg class="i i-eye-off" width="15" height="15" style="display:none"><use href="#i-eye-off"/></svg>
+                  </button>
+                </div>
+                <div class="small mt-2" style="color:#64748b">
+                  Longitud actual: <b class="text-navy">{{ api_key_len.deepseek|default:0 }}</b> caracteres.
+                  Dejar <em>exactamente igual</em> si ya está configurada y no desea cambiarla.
+                </div>
+              </div>
+              <div class="row g-3 mb-3">
+                <div class="col-12 col-md-6">
+                  <label for="deepseek_model" class="form-label fw-semibold small mb-1">Modelo</label>
+                  <select id="deepseek_model" name="model" class="form-select form-select-sm">
+                    {% for slug, label in DEEPSEEK_MODEL_CHOICES %}
+                    <option value="{{ slug }}" {% if prov.model == slug %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label for="deepseek_temperature" class="form-label fw-semibold small mb-1">Temperatura</label>
+                  <input type="number" id="deepseek_temperature" name="temperature"
+                         min="0" max="2" step="0.05"
+                         value="{{ prov.temperature|default:0.2 }}"
+                         class="form-control form-control-sm"/>
+                  <div class="small mt-1" style="color:#64748b">0.0 = determinista · 2.0 = creativo. Recomendado ≤ 0.4 para OCR.</div>
+                </div>
+              </div>
+              <div class="row g-3 mb-4">
+                <div class="col-12 col-md-6">
+                  <label for="deepseek_timeout" class="form-label fw-semibold small mb-1">Timeout (s)</label>
+                  <input type="number" id="deepseek_timeout" name="timeout"
+                         min="10" max="300" step="5"
+                         value="{{ prov.timeout|default:120 }}"
+                         class="form-control form-control-sm"/>
+                  <div class="small mt-1" style="color:#64748b">Tiempo máximo por llamada API antes de abortar.</div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label for="deepseek_retries" class="form-label fw-semibold small mb-1">Reintentos</label>
+                  <input type="number" id="deepseek_retries" name="max_retries"
+                         min="0" max="10" step="1"
+                         value="{{ prov.max_retries|default:2 }}"
+                         class="form-control form-control-sm"/>
+                  <div class="small mt-1" style="color:#64748b">Reintentos en errores 5xx / timeouts transitorios.</div>
+                </div>
+              </div>
+              <div class="d-flex align-items-center justify-content-between gap-4 p-3 rounded-3 mb-4" style="background:#f8fafc;border:1px solid #e2e8f0">
+                <div style="min-width:0;flex:1 1 auto">
+                  <strong class="d-block text-navy small">Proveedor Activo</strong>
+                  <span class="small" style="color:#64748b;line-height:1.5">Si está activado, el pipeline utilizará este proveedor para transcripciones. Si más de uno está activo, se usa Gemini primero.</span>
+                </div>
+                <div class="form-check form-switch flex-shrink-0 ms-3" style="transform:scale(1.25)">
+                  <input class="form-check-input" type="checkbox" name="is_active" {% if prov.is_active %}checked{% endif %} id="deepseek_active" role="switch" style="cursor:pointer">
+                </div>
+              </div>
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div class="d-flex gap-2 flex-wrap">
+                  <button type="submit" class="btn btn-primary btn-sm btn-provider-save fw-semibold px-4">
+                    <svg class="i me-1" width="14" height="14"><use href="#i-save"/></svg>
+                    Guardar DeepSeek
+                  </button>
+                  <button type="button"
+                          class="btn btn-outline-secondary btn-sm btn-provider-test fw-semibold px-4"
+                          aria-label="Probar conexión DeepSeek"
+                          hx-post="{% url 'ai_provider_test' provider='deepseek' %}"
+                          hx-swap="none"
+                          hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                          hx-indicator="#card-deepseek [data-alert-for=deepseek]"
+                          data-test-for="deepseek"
+                          data-alert-target="#card-deepseek [data-alert-for=deepseek]">
+                    <svg class="i me-1" width="14" height="14"><use href="#i-wifi"/></svg>
+                    Testear Conexión
+                  </button>
+                </div>
+                <div class="provider-alert small d-flex align-items-center gap-2 p-2.5 rounded-3 flex-grow-1" data-alert-for="deepseek" role="status" aria-live="polite" id="deepseek-alert"
+                     style="background:rgba(14,165,233,.06);border:1px solid rgba(14,165,233,.15);color:#0c4a6e;min-width:260px;max-width:100%">
+                  <svg class="i flex-shrink-0" width="15" height="15"><use href="#i-loader-2"/></svg>
+                  <span class="alert-text fw-medium">Pulse "Testear Conexión" para validar la configuración.</span>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </article>
+      {% endif %}
+      {% endfor %}
+    {% else %}
+      <!-- CFG_EMPTY_PROVIDERS_FALLBACK -->
+      <div class="col-12">
+        <div class="alert alert-danger d-flex gap-3 align-items-start mb-0 rounded-4 border-0 p-4" style="background:rgba(239,68,68,.06);border-left:4px solid #ef4444!important;color:#7f1d1d">
+          <svg class="i flex-shrink-0 mt-0.5" width="18" height="18"><use href="#i-alert-triangle"/></svg>
+          <span class="alert-text small fw-medium">No se cargaron proveedores IA. Contacte al administrador. (DEBUG: `ai_providers` queryset vacío o nulo.)</span>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</section>
+<!-- CFG_TAB1_PROVIDERS_END -->
+
+{# ============== TAB 2: PIPELINE BATCH ============== #}
+<!-- CFG_TAB2_PIPELINE_START -->
+<section id="tab-pipeline"
+         class="tab-panel"
+         role="tabpanel"
+         aria-labelledby="tab-pipeline-btn"
+         aria-hidden="true">
+
+  <form method="post" novalidate aria-label="Formulario de configuración de procesamiento batch">
+    {% csrf_token %}
+
+    <div class="card rounded-4 border-0 shadow-sm mb-4">
+      <div class="card-body p-4 p-lg-5">
+        <h2 class="h5 mb-4 fw-bold text-navy d-flex align-items-center gap-2"><svg class="i" width="18" height="18"><use href="#i-zap"/></svg> Procesamiento Automático</h2>
+
+        <div class="d-flex align-items-start justify-content-between gap-4 p-3 p-lg-4 rounded-4 mb-4" style="background:rgba(15,58,125,.03);border:1px solid rgba(15,58,125,.1)">
+          <div style="flex:1 1 auto;min-width:0">
+            <strong class="d-block text-navy mb-1 small">{{ form.auto_batch_enabled.label }} <span class="text-danger">*</span></strong>
+            <span class="small" style="color:#64748b;line-height:1.65">
+              Cuando está activado, el sistema escanea cada <strong>15 segundos</strong> (tarea programada Celery Beat) nuevos registros pendientes en la tabla legada <code class="px-1.5 py-0.5 rounded fw-semibold" style="background:#f1f5f9;font-size:12px">actas_escrutinio</code> y encola su transcripción sin intervención manual. No afecta los lotes lanzados manualmente.
+            </span>
+          </div>
+          <div class="form-check form-switch ms-3 flex-shrink-0" style="transform:scale(1.45)">
+            <label class="form-check-label visually-hidden" for="id_auto_batch_enabled">Activar procesamiento automático</label>
+            {{ form.auto_batch_enabled }}
+          </div>
+        </div>
+        {% if form.auto_batch_enabled.errors %}
+        <div class="alert alert-danger small rounded-3 mb-4 p-3">
+          <ul class="mb-0 ps-3">{% for e in form.auto_batch_enabled.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+
+        <div class="row g-3 g-lg-4" style="margin-top:4px">
+          <div class="col-12 col-md-6">
+            <label for="id_auto_batch_interval_secs" class="form-label fw-semibold small mb-1">
+              {{ form.auto_batch_interval_secs.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form.auto_batch_interval_secs }}
+            {% if form.auto_batch_interval_secs.errors %}<div class="text-danger small mt-1"><ul class="mb-0 ps-3">{% for e in form.auto_batch_interval_secs.errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+            <div class="small mt-1.5" style="color:#64748b;line-height:1.55" id="help_auto_batch_interval">
+              Intervalo de <strong>espera adicional</strong> entre scans de auto-lote. Rango permitido: 10 s – 600 s (10 min). El schedule base de Celery Beat es 15 s.
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label for="id_max_batch_size_per_dispatch" class="form-label fw-semibold small mb-1">
+              {{ form.max_batch_size_per_dispatch.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form.max_batch_size_per_dispatch }}
+            {% if form.max_batch_size_per_dispatch.errors %}<div class="text-danger small mt-1"><ul class="mb-0 ps-3">{% for e in form.max_batch_size_per_dispatch.errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+            <div class="small mt-1.5" style="color:#64748b;line-height:1.55" id="help_max_batch">
+              Cantidad máxima de actas que se encolan en UN SOLO despacho (manual o automático). No significa que se procesen todas al mismo tiempo; el límite de workers lo marca <em>max_concurrent</em>. Rango: 1 – 30.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card rounded-4 border-0 shadow-sm mb-4">
+      <div class="card-body p-4 p-lg-5">
+        <h2 class="h5 mb-4 fw-bold text-navy d-flex align-items-center gap-2"><svg class="i" width="18" height="18"><use href="#i-cpu"/></svg> Concurrencia &amp; Rendimiento</h2>
+        <div class="row g-3 g-lg-4">
+          <div class="col-12 col-md-6">
+            <label for="id_max_concurrent" class="form-label fw-semibold small mb-1">
+              {{ form.max_concurrent.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form.max_concurrent }}
+            {% if form.max_concurrent.errors %}<div class="text-danger small mt-1"><ul class="mb-0 ps-3">{% for e in form.max_concurrent.errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+            <div class="small mt-1.5" style="color:#64748b;line-height:1.55" id="help_max_concurrent">
+              <strong class="text-danger">Rigurosamente limitado a 4</strong> por restricción hardware del VPS (4 vCPU). Workers adicionales solo generarán context-switching y OOM kills por parte del kernel. Valor recomendado: 2.
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label for="id_per_acta_timeout_secs" class="form-label fw-semibold small mb-1">
+              {{ form.per_acta_timeout_secs.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form.per_acta_timeout_secs }}
+            {% if form.per_acta_timeout_secs.errors %}<div class="text-danger small mt-1"><ul class="mb-0 ps-3">{% for e in form.per_acta_timeout_secs.errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+            <div class="small mt-1.5" style="color:#64748b;line-height:1.55" id="help_timeout">
+              Tiempo máximo permitido para procesar UNA sola acta (pre-procesado CV2 + llamada API LLM + inserts ORM). Si se excede, Celery mata el proceso con SIGKILL (soft) luego SIGABRT (hard-kill). Rango: 30 s – 180 s.
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label for="id_poll_progress_interval_secs" class="form-label fw-semibold small mb-1">
+              {{ form.poll_progress_interval_secs.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form.poll_progress_interval_secs }}
+            {% if form.poll_progress_interval_secs.errors %}<div class="text-danger small mt-1"><ul class="mb-0 ps-3">{% for e in form.poll_progress_interval_secs.errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+            <div class="small mt-1.5" style="color:#64748b;line-height:1.55" id="help_poll">
+              Frecuencia en segundos con la que el navegador consulta el progreso del lote (HTMX short polling). Valor menor = actualización más fluida pero mayor carga. Rango: 1 s – 15 s. Recomendado: 3 s.
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label for="id_retry_count_job" class="form-label fw-semibold small mb-1">
+              {{ form.retry_count_job.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form.retry_count_job }}
+            {% if form.retry_count_job.errors %}<div class="text-danger small mt-1"><ul class="mb-0 ps-3">{% for e in form.retry_count_job.errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+            <div class="small mt-1.5" style="color:#64748b;line-height:1.55" id="help_retries">
+              Número de reintentos permitidos si un job falla (timeout 5xx de API LLM, errores transitorios). Cada reintento aplica <em>backoff exponencial</em> configurable abajo. Rango: 0 (sin reintento) – 5.
+            </div>
+          </div>
+          <div class="col-12">
+            <label for="id_retry_backoff_secs" class="form-label fw-semibold small mb-1">
+              {{ form.retry_backoff_secs.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form.retry_backoff_secs }}
+            {% if form.retry_backoff_secs.errors %}<div class="text-danger small mt-1"><ul class="mb-0 ps-3">{% for e in form.retry_backoff_secs.errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+            <div class="small mt-1.5" style="color:#64748b;line-height:1.55" id="help_backoff">
+              Tiempo base (en segundos) para backoff exponencial. El reintento N se ejecuta a los <code class="px-1.5 py-0.5 rounded fw-semibold" style="background:#f1f5f9;font-size:12px">retry_backoff_secs × N</code>. Ejemplo: si base = 45 y retry_count = 3 → espera: 45 s + 90 s + 135 s antes de marcar el job como fallido permanente. Rango: 10 s – 600 s.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-4 p-4 rounded-4 border-0 shadow-sm" style="background:linear-gradient(135deg,#f8fafc 0%,#fafbff 100%);border:1px solid #e2e8f0">
+      <div class="small text-muted">
+        {% if config and config.updated_by %}
+          Última modificación: <b class="text-navy">{{ config.updated_at|date:"d/m/Y H:i" }}</b> por <b class="text-navy">{{ config.updated_by.get_full_name|default:config.updated_by.username }}</b>
+        {% else %}
+          Registro singleton <b class="text-navy">#1</b> — sin modificaciones previas.
+        {% endif %}
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm fw-bold px-5 py-2.5 cfg-submit-btn" id="cfg-submit-btn" style="font-size:14px">
+        <svg class="i me-1.5" width="16" height="16"><use href="#i-save"/></svg>
+        Guardar Configuración
+      </button>
+    </div>
+  </form>
+</section>
+<!-- CFG_TAB2_PIPELINE_END -->
+<!-- CFG_TABSNOWRAP_END -->
+
+<!-- CFG_CONTENT_DIV_END_20260918 -->
+
+<script>
+(function () {
+  // TABS MANAGER
+  var tabGroups = document.querySelectorAll('[data-tabs]');
+  tabGroups.forEach(function (group) {
+    var btns = group.querySelectorAll('[role="tab"][data-tab-for]');
+    function activate(btn, silent) {
+      var target = btn.getAttribute('data-tab-for');
+      btns.forEach(function (b) {
+        var isActive = b === btn;
+        b.classList.toggle('is-active', isActive);
+        b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        b.setAttribute('tabindex', isActive ? '0' : '-1');
+        if (isActive) { b.style.borderBottomColor = '#0F3A7D'; b.style.color = '#0F3A7D'; }
+        else { b.style.borderBottomColor = ''; b.style.color = ''; }
+        var panel = document.getElementById(b.getAttribute('data-tab-for'));
+        if (panel) {
+          panel.classList.toggle('is-visible', isActive);
+          panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+        }
+      });
+      try { if (!silent && history.replaceState) history.replaceState(null, '', '#' + target); } catch (e) {}
+    }
+    btns.forEach(function (btn) {
+      btn.addEventListener('click', function () { activate(btn); });
+      btn.addEventListener('keydown', function (ev) {
+        if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') {
+          ev.preventDefault();
+          var idx = Array.prototype.indexOf.call(btns, btn);
+          var nextIdx = ev.key === 'ArrowRight' ? (idx + 1) % btns.length : (idx - 1 + btns.length) % btns.length;
+          btns[nextIdx].focus();
+          activate(btns[nextIdx]);
+        }
+      });
+    });
+    try {
+      var hash = (window.location.hash || '').replace('#', '');
+      if (hash) { var mb = group.querySelector('[data-tab-for="' + hash + '"]'); if (mb) activate(mb, true); }
+    } catch (e) {}
+  });
+
+  // Password toggle
+  document.querySelectorAll('[data-toggle-pw]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id = btn.getAttribute('data-toggle-pw');
+      var inp = document.getElementById(id);
+      if (!inp) return;
+      if (inp.type === 'password') inp.type = 'text'; else inp.type = 'password';
+      var on = btn.querySelector('.i-eye'); var off = btn.querySelector('.i-eye-off');
+      if (on && off) { var s = inp.type === 'text'; on.style.display = s ? 'none' : ''; off.style.display = s ? '' : 'none'; }
+    });
+  });
+
+  // Auto-batch toggle visual state (Pipeline tab)
+  var abToggles = document.querySelectorAll('.cfg-switch #id_auto_batch_enabled, .form-switch #id_auto_batch_enabled');
+  abToggles.forEach(function (abToggle) {
+    var label = abToggle.closest('.form-switch');
+    if (!label) return;
+    var parent = label.closest('.card, .alert, section, div[style]');
+    if (!parent) parent = document.body;
+    var stateSpan = document.createElement('span');
+    stateSpan.className = 'auto-state';
+    stateSpan.style.cssText = 'font-weight:700;margin-left:12px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#64748b;display:inline-flex;align-items:center;gap:6px';
+    var wrap = abToggle.closest('.d-flex');
+    if (wrap) {
+      var strongTarget = wrap.querySelector('strong');
+      if (strongTarget && strongTarget.parentNode) strongTarget.parentNode.insertBefore(stateSpan, strongTarget.nextSibling);
+    }
+    function update() {
+      if (abToggle.checked) {
+        label.setAttribute('data-active', 'true');
+        if (stateSpan) {
+          stateSpan.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;box-shadow:0 0 0 3px rgba(34,197,94,.2)"></span> ACTIVO';
+          stateSpan.style.color = '#15803d';
+        }
+      }
+      else {
+        label.setAttribute('data-active', 'false');
+        if (stateSpan) {
+          stateSpan.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#64748b;display:inline-block"></span> INACTIVO';
+          stateSpan.style.color = '#64748b';
+        }
+      }
+    }
+    abToggle.addEventListener('change', update); update();
+  });
+
+  // Doble submit protector
+  (function () {
+    var b = document.getElementById('cfg-submit-btn'); if (!b) return;
+    var f = b.closest('form'); if (!f) return;
+    f.addEventListener('submit', function () {
+      b.disabled = true; b.style.opacity = '0.7'; b.style.cursor = 'wait';
+      var s = b.querySelector('svg use'); if (s) s.setAttribute('href', '#i-loader-2');
+    });
+  })();
+
+  // Alert helpers
+  function setAlert(target, state, text, icon) {
+    if (!target) return;
+    target.classList.add('is-visible'); target.setAttribute('data-alert-state', state);
+    if (state === 'ok') { target.style.background = 'rgba(34,197,94,.08)'; target.style.borderColor = 'rgba(34,197,94,.25)'; target.style.color = '#14532d'; }
+    else if (state === 'err') { target.style.background = 'rgba(239,68,68,.08)'; target.style.borderColor = 'rgba(239,68,68,.25)'; target.style.color = '#7f1d1d'; }
+    else if (state === 'loading') { target.style.background = 'rgba(14,165,233,.06)'; target.style.borderColor = 'rgba(14,165,233,.15)'; target.style.color = '#0c4a6e'; }
+    var s = target.querySelector('svg use'); if (s) s.setAttribute('href', '#i-' + icon);
+    var t = target.querySelector('.alert-text'); if (t) t.textContent = text;
+  }
+
+  // Test connection buttons
+  document.querySelectorAll('[data-test-for]').forEach(function (btn) {
+    btn.addEventListener('htmx:beforeRequest', function () {
+      btn.setAttribute('disabled', 'disabled'); btn.setAttribute('aria-busy', 'true');
+      setAlert(document.querySelector(btn.getAttribute('data-alert-target')), 'loading', 'Probando conexión...', 'loader-2');
+    });
+    btn.addEventListener('htmx:afterRequest', function (evt) {
+      btn.removeAttribute('disabled'); btn.removeAttribute('aria-busy');
+      var t = document.querySelector(btn.getAttribute('data-alert-target'));
+      try {
+        var d = JSON.parse(evt.detail.xhr.responseText);
+        if (d.ok) setAlert(t, 'ok', 'Conexión OK · ' + (d.msg || 'ping exitoso.'), 'check-circle-2');
+        else setAlert(t, 'err', 'Error: ' + (d.error || d.msg || 'no se pudo conectar.'), 'alert-triangle');
+      } catch (err) { setAlert(t, 'err', 'Respuesta inválida del servidor.', 'alert-triangle'); }
+    });
+  });
+
+  // Provider save forms
+  document.querySelectorAll('.provider-form').forEach(function (form) {
+    form.addEventListener('htmx:beforeRequest', function () {
+      var sb = form.querySelector('.btn-provider-save'); if (sb) { sb.setAttribute('disabled', 'disabled'); sb.style.opacity = '.65'; }
+    });
+    form.addEventListener('htmx:afterRequest', function (evt) {
+      var sb = form.querySelector('.btn-provider-save'); if (sb) { sb.removeAttribute('disabled'); sb.style.opacity = ''; }
+      var pv = form.getAttribute('data-provider-form');
+      var al = form.querySelector('[data-alert-for="' + pv + '"]');
+      try {
+        var d = JSON.parse(evt.detail.xhr.responseText);
+        if (d.ok) { setAlert(al, 'ok', d.msg || 'Configuración guardada correctamente.', 'check-circle-2'); setTimeout(function () { window.location.reload(); }, 600); }
+        else setAlert(al, 'err', d.error || d.msg || 'No se pudo guardar.', 'alert-triangle');
+      } catch (err) { setAlert(al, 'err', 'Respuesta inválida del servidor al guardar.', 'alert-triangle'); }
+    });
+  });
+})();
+</script>
+<!-- CFG_SCRIPT_END_20260918_BUILD006 -->
+<!-- CFG_HTML_END_20260918_BUILD006 -->
+{% endblock %}

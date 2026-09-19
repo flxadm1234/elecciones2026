@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Resultado · Procesamiento Batch{% endblock %}
+
+{% block body %}
+<div class="page-head mb-3">
+  <div>
+    <nav aria-label="breadcrumb" class="mb-1">
+      <ol class="breadcrumb breadcrumb-sm mb-0">
+        <li class="breadcrumb-item"><a class="text-decoration-none" href="{% url 'dashboard' %}">Inicio</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Resultado Procesamiento</li>
+      </ol>
+    </nav>
+    <h1 class="page-title mb-0">Resultado · Batch Procesamiento</h1>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'dashboard' %}">
+      <svg class="i" width="16" height="16"><use href="#i-chevron-left"/></svg>
+      Dashboard
+    </a>
+    <a class="btn btn-primary btn-sm" href="{% url 'actas_procesadas' %}">
+      <svg class="i" width="16" height="16"><use href="#i-folder-check"/></svg>
+      Ver Procesadas
+    </a>
+  </div>
+</div>
+
+<div class="card rounded-4 overflow-hidden mb-4" style="background:linear-gradient(135deg,#0F3A7D 0%,#1e4fa8 55%,#2a5fc4 100%);color:#fff;border:0">
+  <div class="card-body p-4 p-lg-5">
+    <span class="d-inline-flex align-items-center gap-2 text-uppercase fw-semibold mb-2" style="font-size:12.5px;letter-spacing:.5px;color:rgba(255,255,255,.78)">
+      <svg class="i" width="15" height="15"><use href="#i-zap"/></svg>
+      {% if count > 0 %}Ejecución completada{% else %}Lote verificado{% endif %}
+    </span>
+    <h2 class="fw-bold mb-2" style="font-size:clamp(1.4rem,2.2vw,2rem);letter-spacing:-.01em;color:#fff">Pipeline de Procesamiento</h2>
+    <p class="mb-4" style="color:rgba(255,255,255,.84);line-height:1.6;font-size:15px;max-width:720px">
+      {% if count > 0 %}Se ejecutó el lote de actas pendientes. Consulta a continuación el detalle por acta procesada.
+      {% else %}No había actas pendientes de procesamiento. El lote se encontraba vacío.{% endif %}
+    </p>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge text-bg-success rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" style="background:rgba(22,163,74,.22)!important;color:#86efac;border:1px solid rgba(22,163,74,.35)">
+        <svg class="i" width="14" height="14"><use href="#i-check-circle"/></svg> OK: <b>{{ ok_count }}</b>
+      </span>
+      <span class="badge rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" style="background:rgba(255,255,255,.1);color:#e2e8f0;border:1px solid rgba(255,255,255,.22)">
+        <svg class="i" width="14" height="14"><use href="#i-vote"/></svg> Total: <b>{{ count }}</b> actas
+      </span>
+      <span class="badge rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" style="background:rgba(220,38,38,.22)!important;color:#fecaca;border:1px solid rgba(220,38,38,.35)">
+        <svg class="i" width="14" height="14"><use href="#i-x-circle"/></svg> Fallaron: <b>{{ fallo_count }}</b>
+      </span>
+      {% if batch_info and batch_info.total_batch > 0 %}
+      <span class="badge text-bg-info rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2" style="background:rgba(14,165,233,.2)!important;color:#7dd3fc;border:1px solid rgba(14,165,233,.35)">
+        <svg class="i" width="14" height="14"><use href="#i-clock"/></svg>
+        Lote planificado: {{ batch_info.total_batch }}
+        (nuevos={{ batch_info.nuevos_no_sync }} · sin transcripción={{ batch_info.sync_pendientes_sin_transcrip }})
+      </span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<section class="card rounded-4 border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="px-4 px-lg-5 pt-4 pb-3 d-flex align-items-center justify-content-between flex-wrap gap-2" style="border-bottom:1px solid var(--bs-border-color)">
+      <div>
+        <h2 class="h5 mb-1 fw-bold text-navy">Detalle de Ejecución</h2>
+        <div class="small text-muted">Cada fila corresponde a un acta enviada al pipeline de IA</div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" style="font-size:14.5px">
+        <thead class="table-light" style="--bs-table-bg:#f8fafc">
+          <tr>
+            <th style="width:100px" class="ps-4">Legacy ID</th>
+            <th style="width:180px">Estado</th>
+            <th class="pe-4">Detalle / Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+          <tr>
+            <td class="ps-4 mono"><b class="text-navy">#{{ r.legacy_id }}</b></td>
+            <td>
+              {% if r.ok %}
+                <span class="badge text-bg-success rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2 fw-semibold">
+                  <svg class="i" width="14" height="14"><use href="#i-check-circle"/></svg> OK · {{ r.status }}
+                </span>
+              {% else %}
+                <span class="badge text-bg-danger rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2 fw-semibold">
+                  <svg class="i" width="14" height="14"><use href="#i-x-circle"/></svg> FALLÓ · {{ r.status }}
+                </span>
+              {% endif %}
+            </td>
+            <td class="pe-4">
+              {% if r.error %}
+                <span class="fw-semibold text-danger">{{ r.error }}</span>
+              {% else %}
+                <span class="text-muted">— Procesamiento sin novedades.</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="3" class="px-4 py-5">
+              <div class="alert alert-info d-flex gap-3 align-items-start mb-0 mx-auto" style="max-width:640px">
+                <svg class="i flex-shrink-0 mt-1" width="18" height="18"><use href="#i-info"/></svg>
+                <div>
+                  No había actas pendientes de procesamiento. El lote se encontraba vacío.
+                  Puedes ir a <a href="{% url 'actas_pendientes' %}" class="alert-link fw-semibold">Actas por Procesar</a> para ver el estado actualizado o
+                  volver al <a href="{% url 'dashboard' %}" class="alert-link fw-semibold">Dashboard</a>.
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}
